@@ -33,6 +33,14 @@ Initial extraction of the Codex CLI dev-OS toolkit into a standalone repo.
   `pull_request_target`) and replaced the unused Python setup step with Node.
 - PSM-sync hook now caps auto-appended notes (`CODEX_PSM_MAX_NOTES`, default 50)
   so the file can't grow unbounded.
+- Verified against the real Codex CLI docs and fixed three mismatches:
+  - `codex_review.sh` and the PR-review workflow now pass the prompt as a
+    positional argument (the documented form); the previous undocumented
+    stdin-via-`-` form wouldn't have worked against the real CLI.
+  - Removed the fictional `allowed_hosts` array from `[sandbox_workspace_write]`
+    in `config.toml.example`; per-domain restriction is via
+    `[features.network_proxy]` and is now documented as such.
+  - Clarified `approval_policy = "on-failure"` semantics in the example comment.
 
 ### Root-cause portability fixes
 - Removed all machine-specific hardcodes (`//wsl$/...`, `C:/Users/...`,

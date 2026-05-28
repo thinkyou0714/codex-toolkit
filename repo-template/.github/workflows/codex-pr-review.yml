@@ -61,8 +61,9 @@ jobs:
           fi
           npm install -g @openai/codex >/dev/null 2>&1 || true
           PROMPT="$(cat .github/codex/review-prompt.md)"
-          { printf '%s\n\nDIFF:\n' "$PROMPT"; cat pr.diff; } \
-            | codex exec --model "${CODEX_REVIEW_MODEL:-gpt-5-codex}" - \
+          # codex exec takes the prompt as a positional argument.
+          INPUT="$(printf '%s\n\nDIFF:\n' "$PROMPT"; cat pr.diff)"
+          codex exec --model "${CODEX_REVIEW_MODEL:-gpt-5-codex}" "$INPUT" \
             > review.md || echo "(review step errored; see logs)" > review.md
           echo "skipped=false" >> "$GITHUB_OUTPUT"
 

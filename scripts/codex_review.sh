@@ -74,7 +74,10 @@ EOF
 )"
 
 echo "==> Codex review ($SCOPE), model=$MODEL"
-if printf '%s\n\n%s\n' "$PROMPT" "$DIFF" | "$CODEX_BIN" exec --model "$MODEL" -; then
+# `codex exec` takes the prompt as a positional argument (the documented form).
+# Combine prompt + diff into one argument.
+INPUT="$(printf '%s\n\n%s\n' "$PROMPT" "$DIFF")"
+if "$CODEX_BIN" exec --model "$MODEL" "$INPUT"; then
   status=0
 else
   status=$?

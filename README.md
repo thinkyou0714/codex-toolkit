@@ -66,6 +66,20 @@ Validate any time with `bash tests/smoke.sh` (or `codex-doctor` once installed).
 
 See `docs/ARCHITECTURE.md` for the full picture and `docs/SETUP.md` to get going.
 
+## Safety (v0.2.0+)
+
+Two minimal primitives that every wrapper honors:
+
+- **Secret redaction** — `home/lib/secret_redact.py` (+ `SecretRedact.psm1`) is
+  the single source of truth for the 8 patterns that get scrubbed before any
+  command line / failure detail hits the log.
+- **Kill switch** — `kill-switch activate "<reason>"` stops every codex
+  invocation in one place; `kill-switch deactivate` resumes. `codex-doctor`
+  warns if it's been ACTIVE > 24h.
+
+What's intentionally deferred (egress allowlist, iteration guard, SLO checker,
+the Bernstein composition chain) is documented in [docs/SAFETY.md](docs/SAFETY.md).
+
 ## License
 
 MIT — see `LICENSE`.

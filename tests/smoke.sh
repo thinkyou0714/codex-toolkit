@@ -194,6 +194,13 @@ STUB
   rm -rf "$tmp"
 fi
 
+echo "== safety primitives (v0.2.0: secret_redact + kill-switch + codex-run) =="
+if bash "$ROOT/tests/test_safety.sh"; then
+  pass "safety primitives suite"
+else
+  bad "safety primitives suite"
+fi
+
 echo
 if [ "$fail" = 0 ]; then echo "✅ smoke PASS"; else echo "❌ smoke FAIL"; fi
 exit "$fail"

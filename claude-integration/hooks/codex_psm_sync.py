@@ -4,7 +4,7 @@
 
 Root-cause fix vs. the original:
     The original resolved the PSM via a hardcoded Windows/WSL path
-    (//wsl$/Ubuntu/home/rikuto/.codex/session_context.md), which only worked on
+    (//wsl$/Ubuntu/<legacy-user-home>/.codex/session_context.md), which only worked on
     one machine. This version resolves it from CODEX_HOME (default ~/.codex),
     so it is portable across Linux/macOS/WSL.
 

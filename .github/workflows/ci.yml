@@ -4,6 +4,7 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   lint:
@@ -17,8 +18,10 @@ jobs:
           sudo apt-get install -y shellcheck >/dev/null
           # -S warning: enforce warnings/errors, skip benign info notes
           # (runtime `source`, the `bash -c '...'` idiom, safe `A && b || c`).
+          # Note: home/scripts/*.sh and tests/*.sh added in 0.2.0 (kill-switch + test_safety).
           shellcheck -S warning \
-            scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
+            scripts/*.sh home/*.sh install.sh uninstall.sh tests/*.sh \
+            home/scripts/*.sh \
             repo-template/.codex/skills/lab-research/scripts/*.sh
 
   smoke:

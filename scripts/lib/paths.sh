@@ -3,7 +3,7 @@
 #
 # Why this file exists (root-cause fix):
 #   The original scripts hardcoded machine-specific paths such as
-#   //wsl$/Ubuntu/home/rikuto/... and ~/.lab/codex/... and depended on an
+#   //wsl$/Ubuntu/<legacy-user-home>/... and ~/.lab/codex/... and depended on an
 #   unversioned ~/.codex/env.sh. That made them non-portable and silently
 #   broken on any other machine. Everything is now resolved here, with env-var
 #   overrides and sane fallbacks, so a single `source` makes any script portable.
@@ -17,7 +17,7 @@
 set -o pipefail
 
 # --- CODEX_HOME: where global Codex config/dotfiles live -----------------------
-# Replaces the old //wsl$/Ubuntu/home/rikuto/.codex hardcode.
+# Replaces the old //wsl$/Ubuntu/<legacy-user-home>/.codex hardcode.
 export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 
 # --- Toolkit root (the checkout of this repo) ----------------------------------

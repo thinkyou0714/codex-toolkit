@@ -37,6 +37,14 @@ command -v shellcheck && shellcheck scripts/*.sh home/*.sh install.sh uninstall.
    never clobber user data (`config.toml`, `session_context.md`).
 5. Keep `home/AGENTS.md` small and its top section byte-stable (prompt-cache
    friendliness); detail goes in `AGENTS-full.md`.
+6. **Wrappers that log codex invocations MUST redact** through
+   `home/lib/secret_redact.py` before writing to `failures.jsonl` (or any other
+   log). The lib is the single source of truth for the 8 patterns; do not roll
+   your own regex set. PowerShell wrappers use `home/lib/SecretRedact.psm1`.
+7. **Wrappers MUST honor the kill switch.** Before invoking `codex`, call
+   `kill-switch check` (exit 0 = clear, exit 1 = ACTIVE). When ACTIVE, refuse to
+   run and exit 7. `scripts/codex-run.sh` is the reference implementation —
+   prefer wrapping it over re-implementing the gate.
 
 ## Conventions
 - Bash: `set -euo pipefail`, source `lib/paths.sh`, shellcheck-clean.

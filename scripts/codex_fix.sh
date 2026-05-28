@@ -9,9 +9,21 @@
 #   codex_fix.sh -f notes.md          # read the task from a file
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve our real location even when invoked via a symlink (e.g. ~/.local/bin),
+# then locate the shared lib next to it, or via the toolkit root.
+_src="${BASH_SOURCE[0]}"
+while [ -L "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_src")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/paths.sh" ]; then _lib="$SCRIPT_DIR/lib/paths.sh"
+elif [ -n "${CODEX_TOOLKIT_ROOT:-}" ] && [ -f "$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh" ]; then _lib="$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh"
+elif [ -f "$HOME/.codex/toolkit-root" ] && [ -f "$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh" ]; then _lib="$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh"
+else echo "error: cannot locate scripts/lib/paths.sh (set CODEX_TOOLKIT_ROOT)" >&2; exit 1; fi
 # shellcheck source=lib/paths.sh
-source "$SCRIPT_DIR/lib/paths.sh"
+source "$_lib"
 
 codex_require "$CODEX_BIN" || exit 127
 
@@ -25,9 +37,12 @@ else
 fi
 [ -n "$TASK" ] || codex_die "no task given. Usage: codex_fix.sh \"<task>\"  |  codex_fix.sh -f <file>"
 
-# Optional cost gate.
-if [ -f "$CODEX_HOME/scripts/cost-breaker.py" ] && codex_have python3; then
-  if ! python3 "$CODEX_HOME/scripts/cost-breaker.py" check --label fix 2>/dev/null; then
+# Optional cost gate (estimate-based): check before, record after, so the daily
+# ledger actually accumulates and can trip on the Nth call of the day.
+EST="${CODEX_FIX_EST_USD:-0.40}"
+BREAKER="$CODEX_HOME/scripts/cost-breaker.py"
+if [ -f "$BREAKER" ] && codex_have python3; then
+  if ! python3 "$BREAKER" check --label fix --est-usd "$EST" 2>/dev/null; then
     echo "Cost circuit-breaker tripped — fix skipped. Override with CODEX_COST_BREAKER_OFF=1." >&2
     [ "${CODEX_COST_BREAKER_OFF:-0}" = "1" ] || exit 3
   fi
@@ -36,4 +51,13 @@ fi
 MODEL="${CODEX_FIX_MODEL:-gpt-5-codex}"
 
 echo "==> Codex fix in $CODEX_PROJECT_DIR, model=$MODEL"
-"$CODEX_BIN" exec --model "$MODEL" --cd "$CODEX_PROJECT_DIR" "$TASK"
+if "$CODEX_BIN" exec --model "$MODEL" --cd "$CODEX_PROJECT_DIR" "$TASK"; then
+  status=0
+else
+  status=$?
+fi
+
+if [ "$status" = 0 ] && [ -f "$BREAKER" ] && codex_have python3; then
+  python3 "$BREAKER" record --usd "$EST" --label fix >/dev/null 2>&1 || true
+fi
+exit "$status"

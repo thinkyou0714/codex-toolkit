@@ -56,8 +56,31 @@ if command -v python3 >/dev/null 2>&1; then
   echo "$out" | grep -q '"delegate": true' && pass "scores repo-wide rename as delegate" || bad "delegate scorer (got '$out')"
 fi
 
+echo "== PSM prune cap =="
+if command -v python3 >/dev/null 2>&1; then
+  out="$(python3 -c "import importlib.util as u; s=u.spec_from_file_location('m','claude-integration/hooks/codex_psm_sync.py'); m=u.module_from_spec(s); s.loader.exec_module(m); t=m.AUTO_MARKER+chr(10)+chr(10).join('- n%d'%i for i in range(10)); print(m.prune(t,3).count('- n'))" 2>/dev/null)"
+  [ "$out" = "3" ] && pass "PSM prune keeps last N notes" || bad "PSM prune (got '$out')"
+fi
+
 echo "== install.sh --all --dry-run =="
 if bash install.sh --all --dry-run >/dev/null 2>&1; then pass "dry-run install"; else bad "dry-run install"; fi
+
+echo "== installed wrapper resolves its lib (symlink) =="
+tmp="$(mktemp -d)"
+CODEX_HOME="$tmp/.codex" CODEX_BIN_DIR="$tmp/bin" bash install.sh --home --scripts >/dev/null 2>&1
+out="$(cd "$tmp" && CODEX_HOME="$tmp/.codex" "$tmp/bin/codex_review" 2>&1 || true)"
+echo "$out" | grep -q "paths.sh" && bad "installed wrapper can't find lib (got: $out)" || pass "installed wrapper resolves lib"
+rm -rf "$tmp"
+
+echo "== install/uninstall round-trip (home) =="
+tmp="$(mktemp -d)"
+CODEX_HOME="$tmp/.codex" bash install.sh --home >/dev/null 2>&1
+{ [ -f "$tmp/.codex/AGENTS.md" ] && [ -f "$tmp/.codex/config.toml" ]; } && pass "home install creates files" || bad "home install"
+echo "# keep me" >> "$tmp/.codex/config.toml"
+CODEX_HOME="$tmp/.codex" bash uninstall.sh --home >/dev/null 2>&1
+[ ! -f "$tmp/.codex/AGENTS.md" ] && pass "uninstall removes toolkit files" || bad "uninstall left toolkit files"
+grep -q "keep me" "$tmp/.codex/config.toml" 2>/dev/null && pass "uninstall preserves user config.toml" || bad "uninstall ate config.toml"
+rm -rf "$tmp"
 
 echo
 if [ "$fail" = 0 ]; then echo "✅ smoke PASS"; else echo "❌ smoke FAIL"; fi

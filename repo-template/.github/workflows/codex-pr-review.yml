@@ -4,9 +4,13 @@
 # as a sticky comment. Requires repo secret OPENAI_API_KEY. Safe by default:
 # read-only on the code, comment-only on the PR.
 #
-# Security note: uses pull_request_target ONLY to get write access for the
-# comment, and never checks out or executes untrusted PR code — it operates on
-# the diff text fetched via the API. Keep it that way.
+# Security note: deliberately triggered by `pull_request` (NOT
+# pull_request_target). On fork PRs the token is read-only and repo secrets are
+# unavailable, so the OPENAI_API_KEY step below simply skips — no secret
+# exposure. The job never checks out or executes untrusted PR code; it only
+# reads the diff text. For same-repo PRs the token has the write access needed
+# to post the comment. Do not switch to pull_request_target without rethinking
+# this threat model.
 name: codex-pr-review
 
 on:
@@ -40,10 +44,10 @@ jobs:
             --repo "${{ github.repository }}" > pr.diff
           echo "diff bytes: $(wc -c < pr.diff)"
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          python-version: "3.12"
+          node-version: "20"
 
       - name: Run Codex review
         id: review

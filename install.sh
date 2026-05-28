@@ -94,9 +94,12 @@ fi
 
 if [ "$DO_SCRIPTS" = 1 ]; then
   echo "==> --scripts: $BIN_DIR"
+  # Symlink (not copy) so wrappers always resolve their sibling lib/paths.sh in
+  # the real toolkit checkout. A copy would orphan them from lib/ and break.
+  run "mkdir -p $BIN_DIR" mkdir -p "$BIN_DIR"
   for s in codex_review.sh codex_fix.sh codex_auto_review.sh; do
-    copy_file "$TOOLKIT_ROOT/scripts/$s" "$BIN_DIR/${s%.sh}"
-    run "chmod +x $BIN_DIR/${s%.sh}" chmod +x "$BIN_DIR/${s%.sh}"
+    run "symlink $BIN_DIR/${s%.sh} -> $TOOLKIT_ROOT/scripts/$s" \
+      ln -sf "$TOOLKIT_ROOT/scripts/$s" "$BIN_DIR/${s%.sh}"
   done
   echo "  note: ensure $BIN_DIR is on your PATH."
 fi

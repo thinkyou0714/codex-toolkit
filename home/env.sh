@@ -23,6 +23,10 @@ export CODEX_FIX_MODEL="${CODEX_FIX_MODEL:-gpt-5-codex}"
 export CODEX_COST_DAILY_USD="${CODEX_COST_DAILY_USD:-5.00}"
 # Per-invocation ceiling in USD.
 export CODEX_COST_PER_CALL_USD="${CODEX_COST_PER_CALL_USD:-1.00}"
+# Per-invocation spend estimate (USD) the wrappers check against and then record
+# to the ledger, so the daily total reflects actual usage. Tune to your models.
+export CODEX_REVIEW_EST_USD="${CODEX_REVIEW_EST_USD:-0.20}"
+export CODEX_FIX_EST_USD="${CODEX_FIX_EST_USD:-0.40}"
 # Where the breaker keeps its running ledger.
 export CODEX_COST_LEDGER="${CODEX_COST_LEDGER:-$CODEX_HOME/cost-ledger.jsonl}"
 # Set to 1 to bypass the breaker entirely (emergencies only).

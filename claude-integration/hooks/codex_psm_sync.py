@@ -70,6 +70,17 @@ def ensure_marker(path: Path) -> str:
     return text
 
 
+def prune(text: str, max_notes: int) -> str:
+    # Keep everything up to and including the marker, then only the last
+    # `max_notes` note lines below it (PSM is working memory, not an archive).
+    head, sep, tail = text.partition(AUTO_MARKER)
+    if not sep:
+        return text
+    notes = [ln for ln in tail.splitlines() if ln.strip()]
+    kept = notes[-max_notes:] if max_notes > 0 else notes
+    return head + AUTO_MARKER + "\n" + "\n".join(kept) + ("\n" if kept else "")
+
+
 def main() -> int:
     try:
         payload = read_payload()
@@ -78,7 +89,12 @@ def main() -> int:
         text = ensure_marker(path)
         ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         note = f"- [{ts}] {summarize(payload)}\n"
-        path.write_text(text.rstrip() + "\n" + note, encoding="utf-8")
+        try:
+            max_notes = int(os.environ.get("CODEX_PSM_MAX_NOTES", "50"))
+        except ValueError:
+            max_notes = 50
+        text = prune(text.rstrip() + "\n" + note, max_notes)
+        path.write_text(text, encoding="utf-8")
     except Exception as exc:  # never block the session
         print(f"codex_psm_sync: skipped ({exc})", file=sys.stderr)
     return 0

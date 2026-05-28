@@ -11,9 +11,21 @@
 #   CODEX_REVIEW_MODEL=gpt-5-codex codex_review.sh
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Resolve our real location even when invoked via a symlink (e.g. ~/.local/bin),
+# then locate the shared lib next to it, or via the toolkit root.
+_src="${BASH_SOURCE[0]}"
+while [ -L "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_src")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/paths.sh" ]; then _lib="$SCRIPT_DIR/lib/paths.sh"
+elif [ -n "${CODEX_TOOLKIT_ROOT:-}" ] && [ -f "$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh" ]; then _lib="$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh"
+elif [ -f "$HOME/.codex/toolkit-root" ] && [ -f "$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh" ]; then _lib="$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh"
+else echo "error: cannot locate scripts/lib/paths.sh (set CODEX_TOOLKIT_ROOT)" >&2; exit 1; fi
 # shellcheck source=lib/paths.sh
-source "$SCRIPT_DIR/lib/paths.sh"
+source "$_lib"
 
 codex_require git || exit 127
 codex_require "$CODEX_BIN" || exit 127
@@ -37,9 +49,12 @@ if [ -z "$DIFF" ]; then
   exit 0
 fi
 
-# Optional cost gate.
-if [ -f "$CODEX_HOME/scripts/cost-breaker.py" ] && codex_have python3; then
-  if ! python3 "$CODEX_HOME/scripts/cost-breaker.py" check --label review 2>/dev/null; then
+# Optional cost gate (estimate-based): check before, record after, so the daily
+# ledger actually accumulates and can trip on the Nth call of the day.
+EST="${CODEX_REVIEW_EST_USD:-0.20}"
+BREAKER="$CODEX_HOME/scripts/cost-breaker.py"
+if [ -f "$BREAKER" ] && codex_have python3; then
+  if ! python3 "$BREAKER" check --label review --est-usd "$EST" 2>/dev/null; then
     echo "Cost circuit-breaker tripped — review skipped. Override with CODEX_COST_BREAKER_OFF=1." >&2
     [ "${CODEX_COST_BREAKER_OFF:-0}" = "1" ] || exit 3
   fi
@@ -59,4 +74,13 @@ EOF
 )"
 
 echo "==> Codex review ($SCOPE), model=$MODEL"
-printf '%s\n\n%s\n' "$PROMPT" "$DIFF" | "$CODEX_BIN" exec --model "$MODEL" -
+if printf '%s\n\n%s\n' "$PROMPT" "$DIFF" | "$CODEX_BIN" exec --model "$MODEL" -; then
+  status=0
+else
+  status=$?
+fi
+
+if [ "$status" = 0 ] && [ -f "$BREAKER" ] && codex_have python3; then
+  python3 "$BREAKER" record --usd "$EST" --label review >/dev/null 2>&1 || true
+fi
+exit "$status"

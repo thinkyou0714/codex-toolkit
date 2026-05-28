@@ -61,9 +61,10 @@ jobs:
           fi
           npm install -g @openai/codex >/dev/null 2>&1 || true
           PROMPT="$(cat .github/codex/review-prompt.md)"
-          # codex exec takes the prompt as a positional argument.
-          INPUT="$(printf '%s\n\nDIFF:\n' "$PROMPT"; cat pr.diff)"
-          codex exec --model "${CODEX_REVIEW_MODEL:-gpt-5-codex}" "$INPUT" \
+          # Pipe prompt + diff via stdin (`-`): ARG_MAX-safe for large diffs,
+          # and avoids the positional-prompt hang (openai/codex#20919).
+          { printf '%s\n\nDIFF:\n' "$PROMPT"; cat pr.diff; } \
+            | codex exec --model "${CODEX_REVIEW_MODEL:-gpt-5-codex}" - \
             > review.md || echo "(review step errored; see logs)" > review.md
           echo "skipped=false" >> "$GITHUB_OUTPUT"
 

@@ -72,6 +72,39 @@ out="$(cd "$tmp" && CODEX_HOME="$tmp/.codex" "$tmp/bin/codex_review" 2>&1 || tru
 echo "$out" | grep -q "paths.sh" && bad "installed wrapper can't find lib (got: $out)" || pass "installed wrapper resolves lib"
 rm -rf "$tmp"
 
+echo "== codex_fix.sh hang workaround (openai/codex#20919) =="
+grep -q '</dev/null' scripts/codex_fix.sh && pass "codex_fix.sh closes stdin via </dev/null" || bad "missing </dev/null in codex_fix.sh"
+
+echo "== codex_review.sh uses stdin form (-) =="
+grep -E -q '"\$CODEX_BIN"\s+exec\s+--model\s+"\$MODEL"\s+-' scripts/codex_review.sh && pass "codex_review.sh pipes prompt via stdin -" || bad "codex_review.sh not using stdin -"
+
+echo "== end-to-end (mock codex) =="
+if command -v git >/dev/null 2>&1; then
+  tmp="$(mktemp -d)"
+  # Stub codex on PATH: drains stdin and exits 0 with a marker.
+  cat > "$tmp/codex" <<'STUB'
+#!/usr/bin/env bash
+echo "MOCK_CODEX_OK"
+cat >/dev/null
+STUB
+  chmod +x "$tmp/codex"
+  # Tiny git repo with a diff for codex_review.sh to consume. Disable signing
+  # in case the host enforces it (the test must work without a signing setup).
+  ( cd "$tmp" && git init -q && git config user.email t@t && git config user.name t \
+    && git config commit.gpgsign false \
+    && echo a > f && git add f && git commit -qm init \
+    && echo b > f ) >/dev/null 2>&1
+  # Isolated CODEX_HOME with the real cost-breaker copied in.
+  mkdir -p "$tmp/.codex/scripts"
+  cp home/scripts/cost-breaker.py "$tmp/.codex/scripts/cost-breaker.py"
+  out="$(cd "$tmp" && PATH="$tmp:$PATH" CODEX_HOME="$tmp/.codex" \
+        CODEX_COST_LEDGER="$tmp/.codex/ledger.jsonl" CODEX_REVIEW_EST_USD=0.05 \
+        "$ROOT/scripts/codex_review.sh" 2>&1)"
+  echo "$out" | grep -q MOCK_CODEX_OK && pass "wrapper invokes codex with diff piped" || bad "wrapper did not call codex (out: $out)"
+  [ -s "$tmp/.codex/ledger.jsonl" ] && pass "cost-breaker recorded spend after run" || bad "ledger empty after successful run"
+  rm -rf "$tmp"
+fi
+
 echo "== install/uninstall round-trip (home) =="
 tmp="$(mktemp -d)"
 CODEX_HOME="$tmp/.codex" bash install.sh --home >/dev/null 2>&1
@@ -81,6 +114,22 @@ CODEX_HOME="$tmp/.codex" bash uninstall.sh --home >/dev/null 2>&1
 [ ! -f "$tmp/.codex/AGENTS.md" ] && pass "uninstall removes toolkit files" || bad "uninstall left toolkit files"
 grep -q "keep me" "$tmp/.codex/config.toml" 2>/dev/null && pass "uninstall preserves user config.toml" || bad "uninstall ate config.toml"
 rm -rf "$tmp"
+
+echo "== install/uninstall round-trip (repo) =="
+if command -v git >/dev/null 2>&1; then
+  tmp="$(mktemp -d)"
+  ( cd "$tmp" && git init -q && git config user.email t@t && git config user.name t \
+    && git config commit.gpgsign false ) >/dev/null 2>&1
+  ( cd "$tmp" && bash "$ROOT/install.sh" --repo ) >/dev/null 2>&1
+  { [ -f "$tmp/AGENTS.md" ] && [ -f "$tmp/.github/workflows/codex-pr-review.yml" ] && [ -d "$tmp/.codex/skills/codex-doctor" ]; } \
+    && pass "repo install creates expected files" || bad "repo install"
+  echo "# user edit" >> "$tmp/AGENTS.md"
+  ( cd "$tmp" && bash "$ROOT/uninstall.sh" --repo ) >/dev/null 2>&1
+  [ ! -f "$tmp/.github/workflows/codex-pr-review.yml" ] && pass "repo uninstall removes workflow" || bad "repo uninstall left workflow"
+  [ ! -d "$tmp/.codex/skills/codex-doctor" ] && pass "repo uninstall removes skills dir" || bad "skills dir not removed"
+  grep -q "# user edit" "$tmp/AGENTS.md" 2>/dev/null && pass "repo uninstall preserves user-edited AGENTS.md" || bad "uninstall ate AGENTS.md"
+  rm -rf "$tmp"
+fi
 
 echo
 if [ "$fail" = 0 ]; then echo "✅ smoke PASS"; else echo "❌ smoke FAIL"; fi

@@ -33,14 +33,26 @@ Initial extraction of the Codex CLI dev-OS toolkit into a standalone repo.
   `pull_request_target`) and replaced the unused Python setup step with Node.
 - PSM-sync hook now caps auto-appended notes (`CODEX_PSM_MAX_NOTES`, default 50)
   so the file can't grow unbounded.
-- Verified against the real Codex CLI docs and fixed three mismatches:
-  - `codex_review.sh` and the PR-review workflow now pass the prompt as a
-    positional argument (the documented form); the previous undocumented
-    stdin-via-`-` form wouldn't have worked against the real CLI.
+- Verified against the real Codex CLI docs and fixed mismatches:
   - Removed the fictional `allowed_hosts` array from `[sandbox_workspace_write]`
     in `config.toml.example`; per-domain restriction is via
     `[features.network_proxy]` and is now documented as such.
   - Clarified `approval_policy = "on-failure"` semantics in the example comment.
+- After a closer read (openai/codex PR #15917 and issue #20919), reverted to
+  the stdin-`-` form for `codex_review.sh` and the PR-review workflow, which
+  IS the documented way to feed a long prompt and is ARG_MAX-safe. An earlier
+  switch to positional was based on incomplete info and would have failed on
+  large diffs.
+- Added `</dev/null` to the `codex exec` call in `codex_fix.sh` to work around
+  openai/codex#20919, where a positional-prompt invocation hangs forever in
+  non-interactive shells waiting for stdin EOF.
+- Added `uninstall.sh --repo` for symmetry with `install.sh --repo`. Removes
+  only template files; never touches `AGENTS.md` (user-editable) or
+  `.codex/logs/` (user data).
+- Smoke now includes an end-to-end mock-codex test (stub `codex` on PATH +
+  real cost-breaker against an isolated ledger), guards against the stdin/
+  positional regression, asserts the `</dev/null` workaround is present, and
+  covers the new `--repo` round-trip including AGENTS.md preservation.
 
 ### Root-cause portability fixes
 - Removed all machine-specific hardcodes (`//wsl$/...`, `C:/Users/...`,

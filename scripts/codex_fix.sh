@@ -51,7 +51,10 @@ fi
 MODEL="${CODEX_FIX_MODEL:-gpt-5-codex}"
 
 echo "==> Codex fix in $CODEX_PROJECT_DIR, model=$MODEL"
-if "$CODEX_BIN" exec --model "$MODEL" --cd "$CODEX_PROJECT_DIR" "$TASK"; then
+# `< /dev/null` works around openai/codex#20919: `codex exec "<prompt>"`
+# hangs forever in non-interactive shells waiting for stdin EOF when invoked
+# with a positional prompt. Redirecting stdin from /dev/null closes it cleanly.
+if "$CODEX_BIN" exec --model "$MODEL" --cd "$CODEX_PROJECT_DIR" "$TASK" </dev/null; then
   status=0
 else
   status=$?

@@ -74,10 +74,10 @@ EOF
 )"
 
 echo "==> Codex review ($SCOPE), model=$MODEL"
-# `codex exec` takes the prompt as a positional argument (the documented form).
-# Combine prompt + diff into one argument.
-INPUT="$(printf '%s\n\n%s\n' "$PROMPT" "$DIFF")"
-if "$CODEX_BIN" exec --model "$MODEL" "$INPUT"; then
+# Pipe the prompt + diff via stdin (documented `-` form, added in openai/codex
+# #15917). This is ARG_MAX-safe for large diffs and avoids the positional-arg
+# hang reported in openai/codex#20919.
+if printf '%s\n\n%s\n' "$PROMPT" "$DIFF" | "$CODEX_BIN" exec --model "$MODEL" -; then
   status=0
 else
   status=$?

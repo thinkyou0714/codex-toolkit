@@ -1,0 +1,23 @@
+# Local env / secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Codex runtime artifacts
+.codex/logs/
+cost-ledger.jsonl
+
+# Installer backups
+*.bak
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

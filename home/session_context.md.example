@@ -1,0 +1,36 @@
+<!--
+~/.codex/session_context.md — Persistent Session Memory (PSM).
+
+A small, hand-curated file the agent reads at the start of every session to
+recover cross-session context that does not belong in any one repo. Keep it
+SHORT (it is prepended to context). Prune ruthlessly; this is working memory,
+not an archive. The PSM-sync hook (claude-integration) can append timestamped
+notes here automatically.
+-->
+
+# Session Context (PSM)
+
+## Who / What
+- Operator: <your name / handle>
+- Primary goal this period: <one line>
+
+## Active threads
+<!-- 3-7 bullets max. Each: what it is + the very next action. -->
+- <project>: <state> → next: <action>
+
+## Durable preferences
+<!-- Things the agent should always honor across repos. -->
+- Commit style: <e.g. Conventional Commits, imperative mood>
+- Always run tests before declaring done.
+- Ask before destructive git ops.
+
+## Known pitfalls / scar tissue
+<!-- Hard-won lessons so they are not repeated. -->
+- <gotcha> → <how to avoid>
+
+## Parking lot
+<!-- Ideas to revisit; not active. -->
+- <idea>
+
+---
+<!-- Auto-appended notes below this line (PSM-sync hook). -->

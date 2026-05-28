@@ -1,0 +1,42 @@
+# AGENTS.md — {{PROJECT_NAME}}
+
+<!--
+Per-repo agent instructions. Read by Codex CLI (and honored by Claude Code).
+Overrides the global ~/.codex/AGENTS.md on any conflict. Keep it concrete and
+specific to THIS repo; don't restate the global rules.
+Replace {{PLACEHOLDERS}} and delete guidance comments before committing.
+-->
+
+## What this project is
+{{ONE_PARAGRAPH_DESCRIPTION}}
+
+## Stack & layout
+- Language/runtime: {{LANGUAGE_RUNTIME}}
+- Package manager: {{PACKAGE_MANAGER}}
+- Key directories:
+  - `{{DIR}}` — {{PURPOSE}}
+
+## Setup
+```bash
+{{INSTALL_COMMAND}}
+```
+
+## Build / test / lint (the agent MUST run these before declaring done)
+```bash
+{{TEST_COMMAND}}
+{{LINT_COMMAND}}
+{{BUILD_COMMAND}}
+```
+
+## Conventions specific to this repo
+- {{CONVENTION_1}}
+- Commit style: {{COMMIT_STYLE}}
+
+## Guardrails
+- Do not touch: {{PROTECTED_PATHS}}
+- Secrets live in {{SECRET_LOCATION}}; never commit them. Use `.env.example`.
+- {{OTHER_GUARDRAIL}}
+
+## Definition of done
+- Tests/lint/build above pass.
+- {{DOD_EXTRA}}

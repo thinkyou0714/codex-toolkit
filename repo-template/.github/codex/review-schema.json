@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codex-review-finding",
+  "title": "Codex review output (structured form)",
+  "description": "Optional structured schema for tooling that wants machine-readable review output instead of markdown. Pair with a prompt that asks Codex to emit JSON matching this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "findings"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE", "COMMENT", "REQUEST_CHANGES"]
+    },
+    "summary": {
+      "type": "string",
+      "description": "One or two sentence overall assessment."
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "message"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "high", "medium", "low"]
+          },
+          "file": { "type": ["string", "null"] },
+          "line": { "type": ["integer", "null"], "minimum": 1 },
+          "message": { "type": "string" },
+          "suggestion": {
+            "type": ["string", "null"],
+            "description": "Concrete fix, optionally a code snippet."
+          }
+        }
+      }
+    }
+  }
+}

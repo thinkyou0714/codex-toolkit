@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -y >/dev/null
+          sudo apt-get install -y shellcheck >/dev/null
+          # -S warning: enforce warnings/errors, skip benign info notes
+          # (runtime `source`, the `bash -c '...'` idiom, safe `A && b || c`).
+          shellcheck -S warning scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
+            repo-template/.codex/skills/lab-research/scripts/*.sh
+
+      - name: Smoke test
+        run: bash tests/smoke.sh

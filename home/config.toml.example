@@ -1,0 +1,63 @@
+# ~/.codex/config.toml — global Codex CLI configuration (example).
+# Copy to ~/.codex/config.toml and edit. Contains NO secrets; API keys come from
+# the environment (e.g. OPENAI_API_KEY), never from this file.
+
+# Default model for interactive and `codex exec` runs.
+model = "gpt-5-codex"
+
+# Sandbox policy controls what the agent may touch without asking.
+#   read-only            : can read the repo, cannot write or run commands
+#   workspace-write      : can edit files in the project dir (recommended)
+#   danger-full-access   : no sandbox (avoid unless you know why)
+sandbox_mode = "workspace-write"
+
+# Approval policy for actions outside the sandbox.
+#   untrusted  : approve anything not explicitly trusted
+#   on-failure : auto-run, ask only when a command fails
+#   on-request : the model decides when to ask
+#   never      : never ask (use only with a strict sandbox)
+approval_policy = "on-request"
+
+# Network egress allowlist used when sandboxing network access. Keep this tight.
+[sandbox_workspace_write]
+network_access = true
+
+# Hosts the agent may reach when network access is enabled. Narrow to what your
+# work actually needs.
+allowed_hosts = [
+  "api.openai.com",
+  "github.com",
+  "raw.githubusercontent.com",
+  "registry.npmjs.org",
+  "pypi.org",
+  "files.pythonhosted.org",
+]
+
+# ---------------------------------------------------------------------------
+# MCP servers the CLI should launch. Reference secrets via ${ENV_VAR}; do not
+# inline them. Remove any you do not use.
+# ---------------------------------------------------------------------------
+
+# Example: a local web-search MCP.
+# [mcp_servers.web-search]
+# command = "npx"
+# args = ["-y", "some-web-search-mcp"]
+# env = { SEARCH_API_KEY = "${SEARCH_API_KEY}" }
+
+# Example: the GitHub MCP server.
+# [mcp_servers.github]
+# command = "npx"
+# args = ["-y", "@modelcontextprotocol/server-github"]
+# env = { GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_PERSONAL_ACCESS_TOKEN}" }
+
+# ---------------------------------------------------------------------------
+# Profiles let you switch whole configs with `codex --profile <name>`.
+# ---------------------------------------------------------------------------
+
+[profiles.review]
+model = "gpt-5-codex"
+approval_policy = "never"
+sandbox_mode = "read-only"
+
+[profiles.cheap]
+model = "gpt-5-mini"

@@ -1,0 +1,87 @@
+# Codex automated PR review.
+#
+# Drops into any repo. Runs a Codex review over the PR diff and posts the result
+# as a sticky comment. Requires repo secret OPENAI_API_KEY. Safe by default:
+# read-only on the code, comment-only on the PR.
+#
+# Security note: uses pull_request_target ONLY to get write access for the
+# comment, and never checks out or executes untrusted PR code — it operates on
+# the diff text fetched via the API. Keep it that way.
+name: codex-pr-review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: codex-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # Skip drafts and forks (no secret access on forks anyway).
+    if: ${{ !github.event.pull_request.draft }}
+    steps:
+      - name: Checkout base (config only, no PR code execution)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Fetch PR diff
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > pr.diff
+          echo "diff bytes: $(wc -c < pr.diff)"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Codex review
+        id: review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "OPENAI_API_KEY not set; skipping (configure the repo secret to enable)."
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          npm install -g @openai/codex >/dev/null 2>&1 || true
+          PROMPT="$(cat .github/codex/review-prompt.md)"
+          { printf '%s\n\nDIFF:\n' "$PROMPT"; cat pr.diff; } \
+            | codex exec --model "${CODEX_REVIEW_MODEL:-gpt-5-codex}" - \
+            > review.md || echo "(review step errored; see logs)" > review.md
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+
+      - name: Post sticky review comment
+        if: ${{ steps.review.outputs.skipped != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "<!-- codex-pr-review -->"
+            echo "## 🤖 Codex review"
+            echo
+            cat review.md
+          } > comment.md
+          # Update existing sticky comment if present, else create.
+          existing=$(gh pr view "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" --json comments \
+            --jq '.comments[] | select(.body | startswith("<!-- codex-pr-review -->")) | .url' \
+            | head -n1)
+          if [ -n "$existing" ]; then
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" --edit-last --body-file comment.md
+          else
+            gh pr comment "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" --body-file comment.md
+          fi

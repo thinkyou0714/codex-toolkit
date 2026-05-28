@@ -1,0 +1,18 @@
+# Copilot / AI assistant instructions — {{PROJECT_NAME}}
+
+<!--
+Shared guidance for GitHub Copilot and other in-IDE assistants. Keep it aligned
+with AGENTS.md (the source of truth for agents). Replace {{PLACEHOLDERS}}.
+-->
+
+This repo's authoritative agent guidance is in `AGENTS.md`. Follow it. Highlights:
+
+- Stack: {{LANGUAGE_RUNTIME}}, package manager {{PACKAGE_MANAGER}}.
+- Run `{{TEST_COMMAND}}` before considering a change complete.
+- Commit style: {{COMMIT_STYLE}}.
+- Make the smallest change that solves the problem; match surrounding style.
+- Never write secrets into the repo; use `.env.example` and env vars.
+- Do not modify {{PROTECTED_PATHS}}.
+
+When suggesting code, prefer existing helpers and conventions in the file you're
+editing over introducing new patterns.

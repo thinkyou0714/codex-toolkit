@@ -1,0 +1,24 @@
+# openai.yaml — model/provider config for the lab-research skill (example).
+# Copy/edit as needed. Contains NO secrets; the API key comes from the
+# environment (OPENAI_API_KEY), never from this file.
+
+provider: openai
+
+# Model used to synthesize research notes. Override per-run with CODEX_RESEARCH_MODEL.
+model: gpt-5
+
+# Generation settings tuned for factual synthesis (low temperature).
+temperature: 0.2
+max_output_tokens: 4000
+
+# Optional fallback chain, mirrors CODEX_PROVIDER_CHAIN. The skill walks this on
+# quota/429 so a long research batch doesn't die on a busy provider.
+fallback_chain:
+  - openai
+  - groq
+  - openrouter
+  - ollama
+
+# Where to save notes. Leave blank to use $CODEX_VAULT_DIR (or ./research as a
+# last-resort fallback). Never hardcode a per-machine absolute path here.
+vault_dir: ""

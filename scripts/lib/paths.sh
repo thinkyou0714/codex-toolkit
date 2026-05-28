@@ -21,10 +21,11 @@ set -o pipefail
 export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 
 # --- Toolkit root (the checkout of this repo) ----------------------------------
-# Resolve relative to this file, so it works no matter the caller's cwd.
+# Resolve relative to this file (which lives at scripts/lib/paths.sh), so it
+# works no matter the caller's cwd. Two levels up = the repo root.
 if [ -z "${CODEX_TOOLKIT_ROOT:-}" ]; then
   _lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  CODEX_TOOLKIT_ROOT="$(cd "$_lib_dir/.." && pwd)"
+  CODEX_TOOLKIT_ROOT="$(cd "$_lib_dir/../.." && pwd)"
   export CODEX_TOOLKIT_ROOT
   unset _lib_dir
 fi

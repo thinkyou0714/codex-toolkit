@@ -40,7 +40,7 @@ fi
 
 if [ "$DO_SCRIPTS" = 1 ]; then
   echo "==> --scripts"
-  for s in codex_review codex_fix codex_auto_review; do rm_file "$BIN_DIR/$s"; done
+  for s in codex_review codex_fix codex_auto_review codex-doctor; do rm_file "$BIN_DIR/$s"; done
 fi
 
 if [ "$DO_REPO" = 1 ]; then

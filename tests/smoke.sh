@@ -28,6 +28,10 @@ echo "== lib/paths.sh resolves =="
   source scripts/lib/paths.sh
   [ -n "$CODEX_HOME" ] && [ -n "$CODEX_TOOLKIT_ROOT" ] && [ -n "$CODEX_LOG_DIR" ]
 ) && pass "paths.sh exports CODEX_HOME/TOOLKIT_ROOT/LOG_DIR" || bad "paths.sh resolution"
+# Regression guard: CODEX_TOOLKIT_ROOT must point at the repo root (contains
+# install.sh), not the scripts/ subdir. This caught a real bug in pass 5.
+out="$(unset CODEX_TOOLKIT_ROOT; bash -c 'source scripts/lib/paths.sh; echo "$CODEX_TOOLKIT_ROOT"')"
+[ -f "$out/install.sh" ] && pass "CODEX_TOOLKIT_ROOT points at repo root ($out)" || bad "CODEX_TOOLKIT_ROOT wrong: $out (no install.sh there)"
 
 echo "== cost-breaker logic =="
 if command -v python3 >/dev/null 2>&1; then

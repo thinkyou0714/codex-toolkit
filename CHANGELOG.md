@@ -54,6 +54,25 @@ Initial extraction of the Codex CLI dev-OS toolkit into a standalone repo.
   positional regression, asserts the `</dev/null` workaround is present, and
   covers the new `--repo` round-trip including AGENTS.md preservation.
 
+### Added (pass 5: best-practice hardening)
+- `SECURITY.md` — documented threat model, secret handling, CI/hook
+  considerations, supply-chain notes, and vulnerability-reporting path.
+- `scripts/codex-doctor.sh` — real, deterministic health check (CLI present,
+  version, env vars, `~/.codex` layout, cost-breaker status, project wiring,
+  Claude hook absolute-path check). The most valuable check it adds: catches
+  unfilled `{{PLACEHOLDERS}}` in a scaffolded `AGENTS.md` — the #1 silent
+  post-install mistake. `make doctor` invokes it; `install.sh --scripts`
+  symlinks it as `codex-doctor` on PATH.
+- `.editorconfig` for consistent whitespace across editors.
+- `.github/ISSUE_TEMPLATE/bug_report.md` (requires doctor output).
+
+### Fixed (pass 5)
+- `paths.sh` was resolving `CODEX_TOOLKIT_ROOT` to the `scripts/` subdir
+  instead of the repo root (one `..` short). Functionally benign because all
+  consumers used other env vars, but `codex-doctor` surfaced the wrong value
+  on its very first run. Fixed to `../..` and added a smoke regression guard
+  asserting `CODEX_TOOLKIT_ROOT` contains `install.sh`.
+
 ### Root-cause portability fixes
 - Removed all machine-specific hardcodes (`//wsl$/...`, `C:/Users/...`,
   `~/.lab/...`) in favor of env resolution via `scripts/lib/paths.sh`.

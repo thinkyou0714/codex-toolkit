@@ -5,7 +5,7 @@ SHELL := bash
 SH_FILES := scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
             repo-template/.codex/skills/lab-research/scripts/*.sh
 
-.PHONY: help test lint check install install-dry uninstall
+.PHONY: help test lint check doctor install install-dry uninstall
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -20,6 +20,9 @@ lint: ## Run shellcheck (warning severity) if available
 	else echo "shellcheck not installed; skipping"; fi
 
 check: lint test ## What CI runs: lint + test
+
+doctor: ## Run the health check against this environment
+	@bash scripts/codex-doctor.sh
 
 install-dry: ## Preview a full install
 	@bash install.sh --all --dry-run

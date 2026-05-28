@@ -97,9 +97,15 @@ if [ "$DO_SCRIPTS" = 1 ]; then
   # Symlink (not copy) so wrappers always resolve their sibling lib/paths.sh in
   # the real toolkit checkout. A copy would orphan them from lib/ and break.
   run "mkdir -p $BIN_DIR" mkdir -p "$BIN_DIR"
-  for s in codex_review.sh codex_fix.sh codex_auto_review.sh; do
-    run "symlink $BIN_DIR/${s%.sh} -> $TOOLKIT_ROOT/scripts/$s" \
-      ln -sf "$TOOLKIT_ROOT/scripts/$s" "$BIN_DIR/${s%.sh}"
+  for s in codex_review.sh codex_fix.sh codex_auto_review.sh codex-doctor.sh; do
+    # codex-doctor.sh keeps its dash in the installed name (it's a one-shot
+    # diagnostic, not a verb).
+    case "$s" in
+      codex-doctor.sh) link_name="codex-doctor" ;;
+      *)               link_name="${s%.sh}" ;;
+    esac
+    run "symlink $BIN_DIR/$link_name -> $TOOLKIT_ROOT/scripts/$s" \
+      ln -sf "$TOOLKIT_ROOT/scripts/$s" "$BIN_DIR/$link_name"
   done
   echo "  note: ensure $BIN_DIR is on your PATH."
 fi

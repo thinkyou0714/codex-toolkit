@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# codex-doctor.sh — read-only health check for the Codex toolkit setup.
+#
+# Reports each check as one of:
+#   ok    — fine
+#   warn  — fine but worth knowing
+#   fail  — actually broken, with a concrete fix
+#
+# Exit code: 0 unless --strict, then 1 if any fail/warn.
+#
+# Usage:
+#   codex-doctor.sh             # human-friendly report
+#   codex-doctor.sh --strict    # exit non-zero on any fail or warn (for CI)
+#   codex-doctor.sh --quiet     # only print fails/warns
+set -uo pipefail
+
+# --- self-locating, like the other wrappers (handles symlink install) ----------
+_src="${BASH_SOURCE[0]}"
+while [ -L "$_src" ]; do
+  _dir="$(cd -P "$(dirname "$_src")" && pwd)"
+  _src="$(readlink "$_src")"
+  case "$_src" in /*) ;; *) _src="$_dir/$_src" ;; esac
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$_src")" && pwd)"
+if [ -f "$SCRIPT_DIR/lib/paths.sh" ]; then _lib="$SCRIPT_DIR/lib/paths.sh"
+elif [ -n "${CODEX_TOOLKIT_ROOT:-}" ] && [ -f "$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh" ]; then _lib="$CODEX_TOOLKIT_ROOT/scripts/lib/paths.sh"
+elif [ -f "$HOME/.codex/toolkit-root" ] && [ -f "$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh" ]; then _lib="$(cat "$HOME/.codex/toolkit-root")/scripts/lib/paths.sh"
+else echo "error: cannot locate scripts/lib/paths.sh (set CODEX_TOOLKIT_ROOT)" >&2; exit 1; fi
+# shellcheck source=lib/paths.sh
+source "$_lib"
+
+STRICT=0; QUIET=0
+for arg in "$@"; do
+  case "$arg" in
+    --strict) STRICT=1 ;;
+    --quiet)  QUIET=1 ;;
+    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown arg: $arg" >&2; exit 2 ;;
+  esac
+done
+
+fails=0; warns=0
+ok()   { [ "$QUIET" = 1 ] || echo "  ✅ $*"; }
+warn() { echo "  ⚠️  $*"; warns=$((warns+1)); }
+fail() { echo "  ❌ $*"; fails=$((fails+1)); }
+
+section() { [ "$QUIET" = 1 ] || echo; [ "$QUIET" = 1 ] || echo "== $* =="; }
+
+# --- 1. Codex CLI -------------------------------------------------------------
+section "Codex CLI"
+if codex_have "$CODEX_BIN"; then
+  ver="$("$CODEX_BIN" --version 2>/dev/null | head -n1 || true)"
+  if [ -n "$ver" ]; then
+    ok "$CODEX_BIN: $ver"
+  else
+    warn "$CODEX_BIN found but --version returned nothing"
+  fi
+else
+  fail "$CODEX_BIN not on PATH. Install: 'npm install -g @openai/codex' (Node 18+)."
+fi
+
+# --- 2. Environment -----------------------------------------------------------
+section "Environment"
+for var in CODEX_HOME CODEX_TOOLKIT_ROOT; do
+  if [ -n "${!var:-}" ]; then ok "$var=${!var}"; else warn "$var not set. Add 'export $var=...' to your shell rc."; fi
+done
+if [ -n "${OPENAI_API_KEY:-}" ]; then ok "OPENAI_API_KEY: set (value not shown)"; else warn "OPENAI_API_KEY not set. Most calls will fail until you export it."; fi
+
+# --- 3. ~/.codex layout -------------------------------------------------------
+section "Global config ($CODEX_HOME)"
+if [ -d "$CODEX_HOME" ]; then
+  for f in AGENTS.md config.toml env.sh scripts/cost-breaker.py scripts/quota-fallback.py; do
+    if [ -f "$CODEX_HOME/$f" ]; then ok "$f"; else fail "$f missing. Run: install.sh --home"; fi
+  done
+  if [ -f "$CODEX_HOME/session_context.md" ]; then ok "session_context.md (PSM)"; else warn "session_context.md missing (PSM disabled). Run: install.sh --home"; fi
+else
+  fail "$CODEX_HOME does not exist. Run: install.sh --home"
+fi
+
+# --- 4. Cost breaker status ---------------------------------------------------
+section "Cost breaker"
+if [ -f "$CODEX_HOME/scripts/cost-breaker.py" ] && codex_have python3; then
+  status_out="$(python3 "$CODEX_HOME/scripts/cost-breaker.py" status 2>&1 || true)"
+  echo "$status_out" | sed 's/^/  /'
+  if echo "$status_out" | grep -qi 'breaker:\s*OFF'; then warn "breaker is OFF (CODEX_COST_BREAKER_OFF=1). Unset for safety."; fi
+fi
+
+# --- 5. Project wiring --------------------------------------------------------
+section "Project wiring ($CODEX_PROJECT_DIR)"
+if [ -f "$CODEX_PROJECT_DIR/AGENTS.md" ]; then
+  ok "AGENTS.md present"
+  # Catch the most common post-install mistake: unfilled template placeholders.
+  if grep -qE '\{\{[A-Z_]+\}\}' "$CODEX_PROJECT_DIR/AGENTS.md"; then
+    leftover="$(grep -oE '\{\{[A-Z_]+\}\}' "$CODEX_PROJECT_DIR/AGENTS.md" | sort -u | tr '\n' ' ')"
+    fail "AGENTS.md still has unfilled placeholders: $leftover  Fill them in before relying on the agent."
+  else
+    ok "AGENTS.md has no unfilled {{PLACEHOLDERS}}"
+  fi
+else
+  warn "No AGENTS.md at project root. From a target repo: install.sh --repo"
+fi
+if [ -f "$CODEX_PROJECT_DIR/.github/workflows/codex-pr-review.yml" ]; then ok "PR-review workflow present"; else warn "No PR-review workflow (optional)."; fi
+if [ -d "$CODEX_PROJECT_DIR/.codex/skills" ]; then ok ".codex/skills/ present"; else warn ".codex/skills/ absent (optional)."; fi
+
+# --- 6. Claude integration (optional) -----------------------------------------
+if [ -d "$CODEX_PROJECT_DIR/.claude" ]; then
+  section "Claude integration"
+  settings="$CODEX_PROJECT_DIR/.claude/settings.json"
+  if [ -f "$settings" ]; then
+    if grep -qE '"command":\s*"[^"]*\.claude/hooks/[^"]+\.py"' "$settings"; then
+      warn "Hook command uses a relative path. Use absolute \$CLAUDE_PROJECT_DIR/... — relative paths can be silently disabled by 'cd'."
+    else
+      ok "settings.json hook paths look absolute (or no python hooks registered)"
+    fi
+  fi
+fi
+
+# --- summary ------------------------------------------------------------------
+echo
+echo "Summary: $fails fail, $warns warn"
+if [ "$STRICT" = 1 ] && [ $((fails+warns)) -gt 0 ]; then exit 1; fi
+[ "$fails" -gt 0 ] && exit 1 || exit 0

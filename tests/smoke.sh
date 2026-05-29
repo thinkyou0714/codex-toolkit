@@ -66,8 +66,39 @@ if command -v python3 >/dev/null 2>&1; then
   [ "$out" = "3" ] && pass "PSM prune keeps last N notes" || bad "PSM prune (got '$out')"
 fi
 
+echo "== delegate scorer dampens ambiguous work =="
+if command -v python3 >/dev/null 2>&1; then
+  out="$(echo "maybe investigate and figure out how to rename across the repo" | python3 claude-integration/scripts/assess_plan_delegatability.py --stdin --json 2>/dev/null)"
+  echo "$out" | grep -q '"delegate": false' && pass "ambiguity markers keep a broad task inline" || bad "ambiguity dampener (got '$out')"
+fi
+
+echo "== review ingest scores severity from tags only =="
+if command -v python3 >/dev/null 2>&1; then
+  tmp="$(mktemp -d)"
+  log="$tmp/r.jsonl"
+  printf -- '- [HIGH] foo.py:42 boom\n- bar.py:10 mentions a low-level cache\n- not a finding\n' \
+    | CODEX_REVIEW_FAILURES_LOG="$log" python3 scripts/codex_review_ingest.py --input - >/dev/null 2>&1
+  sev="$(python3 -c "import json; r=json.loads(open('$log').read().splitlines()[0]); print(','.join(f['severity'] for f in r['findings']))" 2>/dev/null)"
+  [ "$sev" = "high,unknown" ] && pass "tagged=high, untagged file:line=unknown (no stray 'low')" || bad "ingest severity (got '$sev')"
+  rm -rf "$tmp"
+fi
+
+echo "== VERSION is in sync with CHANGELOG =="
+ver="$(tr -d '[:space:]' < VERSION)"
+grep -q "## \[$ver\]" CHANGELOG.md && pass "CHANGELOG has a [$ver] section" || bad "no '## [$ver]' heading in CHANGELOG.md"
+
+echo "== install.sh argument handling =="
+bash install.sh >/dev/null 2>&1 && bad "no-arg install should exit non-zero" || pass "no-arg install exits non-zero"
+bash install.sh --bogus >/dev/null 2>&1 && bad "unknown arg should exit non-zero" || pass "unknown arg exits non-zero"
+
 echo "== install.sh --all --dry-run =="
 if bash install.sh --all --dry-run >/dev/null 2>&1; then pass "dry-run install"; else bad "dry-run install"; fi
+
+echo "== dry-run changes nothing on disk =="
+tmp="$(mktemp -d)"
+CODEX_HOME="$tmp/.codex" CODEX_BIN_DIR="$tmp/bin" bash install.sh --home --scripts --dry-run >/dev/null 2>&1
+{ [ ! -e "$tmp/.codex" ] && [ ! -e "$tmp/bin" ]; } && pass "dry-run created no files" || bad "dry-run wrote to disk"
+rm -rf "$tmp"
 
 echo "== installed wrapper resolves its lib (symlink) =="
 tmp="$(mktemp -d)"
@@ -132,6 +163,34 @@ if command -v git >/dev/null 2>&1; then
   [ ! -f "$tmp/.github/workflows/codex-pr-review.yml" ] && pass "repo uninstall removes workflow" || bad "repo uninstall left workflow"
   [ ! -d "$tmp/.codex/skills/codex-doctor" ] && pass "repo uninstall removes skills dir" || bad "skills dir not removed"
   grep -q "# user edit" "$tmp/AGENTS.md" 2>/dev/null && pass "repo uninstall preserves user-edited AGENTS.md" || bad "uninstall ate AGENTS.md"
+  rm -rf "$tmp"
+fi
+
+echo "== codex-doctor --strict on a fully-wired setup =="
+if command -v git >/dev/null 2>&1; then
+  tmp="$(mktemp -d)"
+  # Stub codex on PATH so the CLI check passes; --version prints, anything else
+  # just drains stdin.
+  mkdir -p "$tmp/bin"
+  cat > "$tmp/bin/codex" <<'STUB'
+#!/usr/bin/env bash
+case "${1:-}" in --version) echo "codex 0.0.0-stub" ;; *) cat >/dev/null ;; esac
+STUB
+  chmod +x "$tmp/bin/codex"
+  # Real global config + a scaffolded project with placeholders filled in.
+  CODEX_HOME="$tmp/.codex" CODEX_BIN_DIR="$tmp/bin" bash install.sh --home --scripts >/dev/null 2>&1
+  proj="$tmp/proj"; mkdir -p "$proj"
+  ( cd "$proj" && git init -q && git config user.email t@t && git config user.name t \
+    && git config commit.gpgsign false ) >/dev/null 2>&1
+  ( cd "$proj" && bash "$ROOT/install.sh" --repo ) >/dev/null 2>&1
+  # Fill every {{PLACEHOLDER}} so the doctor's placeholder check is clean.
+  filled="$(mktemp)"
+  sed 's/{{[A-Z0-9_]*}}/filled/g' "$proj/AGENTS.md" > "$filled" && mv "$filled" "$proj/AGENTS.md"
+  out="$(CODEX_HOME="$tmp/.codex" CODEX_TOOLKIT_ROOT="$ROOT" CODEX_PROJECT_DIR="$proj" \
+        OPENAI_API_KEY=x PATH="$tmp/bin:$PATH" \
+        bash "$ROOT/scripts/codex-doctor.sh" --strict 2>&1)" && rc=0 || rc=$?
+  [ "${rc:-1}" = 0 ] && pass "codex-doctor --strict passes when everything is wired" \
+    || bad "codex-doctor --strict exited $rc (out: $out)"
   rm -rf "$tmp"
 fi
 

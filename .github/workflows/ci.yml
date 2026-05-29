@@ -6,15 +6,10 @@ on:
   pull_request:
 
 jobs:
-  smoke:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
 
       - name: ShellCheck
         run: |
@@ -22,8 +17,25 @@ jobs:
           sudo apt-get install -y shellcheck >/dev/null
           # -S warning: enforce warnings/errors, skip benign info notes
           # (runtime `source`, the `bash -c '...'` idiom, safe `A && b || c`).
-          shellcheck -S warning scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
+          shellcheck -S warning \
+            scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
             repo-template/.codex/skills/lab-research/scripts/*.sh
+
+  smoke:
+    # Run on both Linux and macOS so the portable-path/bash-3.2 promises in the
+    # scripts are actually exercised, not just asserted.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
 
       - name: Smoke test
         run: bash tests/smoke.sh

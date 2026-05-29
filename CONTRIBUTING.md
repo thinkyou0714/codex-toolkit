@@ -33,6 +33,21 @@ make check     # lint + test (what CI runs)
 - Update `CHANGELOG.md` (Unreleased section) and bump `VERSION` if releasing.
 - Conventional Commits, imperative mood (e.g. `fix: …`, `feat: …`).
 
+## Releasing
+
+```bash
+make bump V=minor      # bump VERSION + seed a CHANGELOG section
+# fill in the new CHANGELOG section, then:
+make release-check     # assert VERSION and CHANGELOG agree
+make check             # lint + smoke
+git commit -am "release: vX.Y.Z"
+git tag -a vX.Y.Z -m vX.Y.Z && git push --follow-tags
+```
+
+Pushing the `vX.Y.Z` tag triggers `release.yml`, which re-checks the tag
+against `VERSION`/`CHANGELOG`, runs the smoke suite, and publishes the matching
+CHANGELOG section as the GitHub release notes (via `gh`, no third-party action).
+
 ## Adding a new path or env var
 
 Add it to `scripts/lib/paths.sh` (or `home/env.sh`), document it in

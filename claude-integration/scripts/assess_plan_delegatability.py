@@ -5,7 +5,8 @@ Codex CLI (or any autonomous coding agent) instead of doing it inline.
 Heuristic and dependency-free. The signals: breadth (many files/dirs), volume
 (large/bulk/all), mechanical nature (rename/migrate/format), and parallelism
 (independent subtasks). Each contributes to a score in [0, 100]; >= threshold
-means "delegate".
+means "delegate". Ambiguity/exploration markers ("investigate", "maybe",
+"figure out") dampen the score, since vague work wants a human in the loop.
 
 Root-cause fix vs. the original:
     Hard-coded, think-you-lab-specific paths/keywords are gone. Defaults are
@@ -45,6 +46,23 @@ BREADTH = re.compile(r"\b(across|every|all (files|modules|packages|tests)|repo-w
 VOLUME = re.compile(r"\b(bulk|batch|hundreds|dozens|many|thousands|large(?:-scale)?|massive)\b", re.I)
 MECHANICAL = re.compile(r"\b(rename|migrate|reformat|format|codemod|find[- ]and[- ]replace|regenerate|bump|update imports|add (a )?(license|copyright) header)\b", re.I)
 PARALLEL = re.compile(r"\b(independent|in parallel|one by one|for each|iterate over|fan[- ]?out)\b", re.I)
+# Exploratory/ambiguous work suits a human-in-the-loop, not fire-and-forget
+# delegation. Each distinct marker dampens the score (capped), so a task that is
+# both broad AND vague no longer auto-delegates on breadth keywords alone.
+AMBIGUITY = re.compile(r"\b(maybe|not sure|unsure|investigate|explore|figure out|decide|design|research|prototype|experiment|tbd|somehow)\b", re.I)
+
+# First match in a category is worth its full weight (so two strong signals
+# still clear the default threshold); each *additional distinct* keyword in the
+# same category adds a small bonus, capped, so volume of evidence matters a
+# little without letting one category alone dominate.
+_INTRA_BONUS = 5
+_INTRA_CAP = 10
+_AMBIGUITY_STEP = 10
+_AMBIGUITY_CAP = 20
+
+
+def _distinct_hits(pat: "re.Pattern[str]", text: str) -> int:
+    return len({m.group(0).lower() for m in pat.finditer(text)})
 
 
 def load_rules() -> dict:
@@ -82,16 +100,25 @@ def score(text: str, rules: dict) -> tuple[int, list[str], bool, bool]:
             blocked = True
             reasons.append(f"matched block pattern '{pat}'")
 
-    if BREADTH.search(text):
-        total += w["breadth"]; reasons.append("repo-wide breadth")
-    if VOLUME.search(text):
-        total += w["volume"]; reasons.append("high volume")
-    if MECHANICAL.search(text):
-        total += w["mechanical"]; reasons.append("mechanical/transform")
-    if PARALLEL.search(text):
-        total += w["parallel"]; reasons.append("parallelizable")
+    for label, pat, key in (
+        ("repo-wide breadth", BREADTH, "breadth"),
+        ("high volume", VOLUME, "volume"),
+        ("mechanical/transform", MECHANICAL, "mechanical"),
+        ("parallelizable", PARALLEL, "parallel"),
+    ):
+        hits = _distinct_hits(pat, text)
+        if hits:
+            bonus = min(_INTRA_BONUS * (hits - 1), _INTRA_CAP)
+            total += w[key] + bonus
+            reasons.append(f"{label} (x{hits})" if hits > 1 else label)
 
-    total = min(total, 100)
+    amb = _distinct_hits(AMBIGUITY, text)
+    if amb:
+        penalty = min(_AMBIGUITY_STEP * amb, _AMBIGUITY_CAP)
+        total -= penalty
+        reasons.append(f"ambiguity/exploration (-{penalty})")
+
+    total = max(0, min(total, 100))
     return total, reasons, forced, blocked
 
 

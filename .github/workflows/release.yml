@@ -1,0 +1,58 @@
+name: release
+
+# Cut a GitHub release when a v* tag is pushed. Guards keep the tag, VERSION,
+# and CHANGELOG in lockstep, then publish the matching CHANGELOG section as the
+# release notes. Uses the preinstalled `gh` CLI — no third-party action, in
+# keeping with the toolkit's no-extra-supply-chain stance.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches VERSION and CHANGELOG
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          ver="$(tr -d '[:space:]' < VERSION)"
+          if [ "$tag" != "$ver" ]; then
+            echo "::error::tag v$tag != VERSION $ver — bump VERSION first" >&2
+            exit 1
+          fi
+          if ! grep -q "## \[$ver\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$ver]' section" >&2
+            exit 1
+          fi
+
+      - name: Smoke test
+        run: bash tests/smoke.sh
+
+      - name: Extract release notes
+        run: |
+          ver="$(tr -d '[:space:]' < VERSION)"
+          awk -v v="$ver" '
+            $0 ~ "^## \\[" v "\\]" { grab = 1; next }
+            grab && /^## \[/        { exit }
+            grab                    { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          echo "----- notes -----"; cat RELEASE_NOTES.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file RELEASE_NOTES.md

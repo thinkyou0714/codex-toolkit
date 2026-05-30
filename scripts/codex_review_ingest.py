@@ -23,10 +23,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SEVERITIES = ("blocker", "high", "medium", "low")
-# A finding line typically looks like: "- [HIGH] path/to/file.ts:42 message"
-# but we stay liberal so we capture more.
-_SEV_RE = re.compile(r"\b(blocker|high|medium|low)\b", re.IGNORECASE)
+# A finding line typically looks like: "- [HIGH] path/to/file.ts:42 message".
+# Severity is only trusted when it appears as an explicit *tag*, not just as a
+# stray word: "the low-level cache in foo.py:10" must NOT be scored as `low`.
+# We try, in order: a bracketed tag ([HIGH]/(high)), a leading label ("- HIGH:"
+# / "1) blocker -"), or an explicit "severity: high". Anything else → unknown.
+_SEV_PATTERNS = (
+    re.compile(r"[\[(]\s*(blocker|high|medium|low)\s*[\])]", re.IGNORECASE),
+    re.compile(r"^[^A-Za-z]{0,4}(blocker|high|medium|low)\b\s*[:\-]", re.IGNORECASE),
+    re.compile(r"\bseverity\s*[:=]\s*(blocker|high|medium|low)\b", re.IGNORECASE),
+)
 _LOC_RE = re.compile(r"([\w./\-]+\.[A-Za-z0-9]+):(\d+)")
+
+
+def _detect_severity(line: str) -> str | None:
+    for pat in _SEV_PATTERNS:
+        m = pat.search(line)
+        if m:
+            return m.group(1).lower()
+    return None
 
 
 def log_path() -> Path:
@@ -52,16 +67,16 @@ def parse_findings(text: str) -> list[dict]:
         line = raw.strip()
         if not line or len(line) < 4:
             continue
-        sev_m = _SEV_RE.search(line)
+        sev = _detect_severity(line)
         loc_m = _LOC_RE.search(line)
         # Only treat as a finding if it has a severity tag or a file:line ref
         # and looks like a bullet/enumerated item.
         is_item = line[0] in "-*•" or re.match(r"^\d+[.)]", line)
-        if not (sev_m or loc_m) or not is_item:
+        if not (sev or loc_m) or not is_item:
             continue
         findings.append(
             {
-                "severity": (sev_m.group(1).lower() if sev_m else "unknown"),
+                "severity": (sev if sev else "unknown"),
                 "file": (loc_m.group(1) if loc_m else None),
                 "line": (int(loc_m.group(2)) if loc_m else None),
                 "message": line,

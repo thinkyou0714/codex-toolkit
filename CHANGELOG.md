@@ -4,6 +4,31 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses semantic
 versioning.
 
+## [0.2.0] - 2026-05-29
+
+### Added
+- Cross-platform CI: the smoke suite now runs on a `{ubuntu, macos}` matrix, so
+  the portable-path / bash-3.2 promises are exercised on macOS too.
+- Tag-driven `release.yml`: pushing a `v*` tag verifies the tag matches
+  `VERSION` and that a matching `CHANGELOG` section exists, runs the smoke
+  suite, then publishes that section as release notes via the preinstalled
+  `gh` CLI (no third-party action).
+- `scripts/bump-version.sh` to bump `VERSION` and seed a `CHANGELOG` section in
+  one step, with `make bump` / `make release-check` targets.
+- Ambiguity dampener in `assess_plan_delegatability.py`: exploratory markers
+  ("investigate", "maybe", "figure out", …) reduce the score so vague work
+  stays inline instead of auto-delegating on breadth keywords alone. Repeated
+  in-category signals now add a small, capped bonus.
+- New smoke coverage: `codex-doctor --strict` end-to-end on a fully-wired
+  setup, installer no-arg/unknown-arg handling, dry-run touches nothing on
+  disk, severity-tag parsing, the ambiguity dampener, and VERSION↔CHANGELOG
+  sync.
+
+### Changed
+- `codex_review_ingest.py` now reads severity only from explicit tags
+  (`[HIGH]`, leading `HIGH:`, `severity: high`) instead of any stray word, so a
+  phrase like "the low-level cache" no longer mis-scores a finding as `low`.
+
 ## [0.1.0] - 2026-05-28
 
 Initial extraction of the Codex CLI dev-OS toolkit into a standalone repo.

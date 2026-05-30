@@ -5,7 +5,7 @@ SHELL := bash
 SH_FILES := scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
             repo-template/.codex/skills/lab-research/scripts/*.sh
 
-.PHONY: help test lint check doctor install install-dry uninstall
+.PHONY: help test lint check doctor install install-dry uninstall bump release-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -32,3 +32,12 @@ install: ## Install global config + scripts onto this machine
 
 uninstall: ## Remove installed files (keeps your data)
 	@bash uninstall.sh --all
+
+bump: ## Bump version + seed CHANGELOG (make bump V=patch|minor|major|X.Y.Z)
+	@bash scripts/bump-version.sh "$(or $(V),patch)"
+
+release-check: ## Verify VERSION and CHANGELOG are in sync before tagging
+	@ver="$$(tr -d '[:space:]' < VERSION)"; \
+	if grep -q "## \[$$ver\]" CHANGELOG.md; then \
+		echo "ok: VERSION $$ver has a matching CHANGELOG section"; \
+	else echo "FAIL: no '## [$$ver]' section in CHANGELOG.md" >&2; exit 1; fi

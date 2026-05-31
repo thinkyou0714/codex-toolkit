@@ -6,6 +6,8 @@ versioning.
 
 ## [0.2.0] - 2026-05-29
 
+Quality bump (evaluation gap closure) + minimal LAB safety primitives port.
+
 ### Added
 - Cross-platform CI: the smoke suite now runs on a `{ubuntu, macos}` matrix, so
   the portable-path / bash-3.2 promises are exercised on macOS too.
@@ -23,11 +25,47 @@ versioning.
   setup, installer no-arg/unknown-arg handling, dry-run touches nothing on
   disk, severity-tag parsing, the ambiguity dampener, and VERSION↔CHANGELOG
   sync.
+- `home/lib/secret_redact.py` — single-source-of-truth 8-pattern secret redaction
+  library (Bearer / `sk-` / `xai-` / `api_key` / `x-api-key` / `token` /
+  `Authorization` / `user:pass@`). Importable + CLI + `--selftest` (8/8).
+- `home/lib/SecretRedact.psm1` — PowerShell mirror for cross-shell parity.
+- `home/scripts/kill-switch.sh` — file-flag emergency stop
+  (`activate <reason>` / `deactivate` / `check` / `status`). Wrappers refuse to
+  invoke codex when ACTIVE. Audit appends to `$CODEX_LOG_DIR/failures.jsonl`.
+- `scripts/codex-run.sh` — thin wrapper around `codex exec` that honors the
+  kill-switch gate and redacts arguments before they hit the failure log.
+  Symlinked to `$CODEX_BIN_DIR/codex-run` by `install.sh --scripts`.
+- `tests/test_safety.sh` — invoked by `smoke.sh`; covers the new primitives
+  end-to-end (selftest 8/8 + kill-switch round-trip + audit log entries).
+- `docs/SAFETY.md` — what's in v0.2.0, what's intentionally deferred, and the
+  kill-switch operations runbook.
 
 ### Changed
 - `codex_review_ingest.py` now reads severity only from explicit tags
   (`[HIGH]`, leading `HIGH:`, `severity: high`) instead of any stray word, so a
   phrase like "the low-level cache" no longer mis-scores a finding as `low`.
+- `scripts/codex-doctor.sh` gains a "Safety primitives" section: verifies the
+  redact lib is installed and passes 8/8, that `kill-switch.sh` is present, and
+  reports the current switch state (warns if ACTIVE > 24h — likely forgotten).
+- `install.sh --home` now also installs `home/lib/*` and `home/scripts/kill-switch.sh`.
+- `install.sh --scripts` symlinks `codex-run.sh` alongside the other wrappers.
+- `.github/workflows/ci.yml` lint job's ShellCheck now covers the new
+  `home/scripts/*.sh` and `tests/*.sh` files added in 0.2.0.
+
+### Fixed
+- Default branch was `claude/vibrant-pasteur-CFfhR` from the initial cloud
+  scaffolding — `main` now exists and is the default.
+- Three comment-only `/home/rikuto` references in
+  `claude-integration/hooks/codex_psm_sync.py` and `scripts/lib/paths.sh`
+  genericized to `<legacy-user-home>` (matches AGENTS.md "No hardcoded machine
+  paths" rule; eliminates personal-username leak on this public repo).
+
+### Deferred (planned for v0.3.0+)
+- Bernstein composition chain (codex_safe → codex_logged → codex_observed).
+- Egress allowlist + DNS pinning (SSRF defense).
+- Iteration guard (doom-loop detection).
+- SLO percentile checker.
+- See `docs/SAFETY.md` for the full scope decision and roadmap.
 
 ## [0.1.0] - 2026-05-28
 

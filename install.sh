@@ -84,6 +84,10 @@ if [ "$DO_HOME" = 1 ]; then
   copy_file "$TOOLKIT_ROOT/home/env.sh"                  "$CODEX_HOME/env.sh"
   copy_file "$TOOLKIT_ROOT/home/scripts/cost-breaker.py" "$CODEX_HOME/scripts/cost-breaker.py"
   copy_file "$TOOLKIT_ROOT/home/scripts/quota-fallback.py" "$CODEX_HOME/scripts/quota-fallback.py"
+  # v0.2.0 minimal safety primitives.
+  copy_file "$TOOLKIT_ROOT/home/scripts/kill-switch.sh"    "$CODEX_HOME/scripts/kill-switch.sh"
+  copy_file "$TOOLKIT_ROOT/home/lib/secret_redact.py"      "$CODEX_HOME/lib/secret_redact.py"
+  copy_file "$TOOLKIT_ROOT/home/lib/SecretRedact.psm1"     "$CODEX_HOME/lib/SecretRedact.psm1"
   # Examples are installed only if the real file is absent (never clobber config).
   [ -f "$CODEX_HOME/config.toml" ] || copy_file "$TOOLKIT_ROOT/home/config.toml.example" "$CODEX_HOME/config.toml"
   [ -f "$CODEX_HOME/session_context.md" ] || copy_file "$TOOLKIT_ROOT/home/session_context.md.example" "$CODEX_HOME/session_context.md"
@@ -97,7 +101,7 @@ if [ "$DO_SCRIPTS" = 1 ]; then
   # Symlink (not copy) so wrappers always resolve their sibling lib/paths.sh in
   # the real toolkit checkout. A copy would orphan them from lib/ and break.
   run "mkdir -p $BIN_DIR" mkdir -p "$BIN_DIR"
-  for s in codex_review.sh codex_fix.sh codex_auto_review.sh codex-doctor.sh; do
+  for s in codex_review.sh codex_fix.sh codex_auto_review.sh codex-doctor.sh codex-run.sh; do
     # codex-doctor.sh keeps its dash in the installed name (it's a one-shot
     # diagnostic, not a verb).
     case "$s" in

@@ -115,6 +115,46 @@ if [ -d "$CODEX_PROJECT_DIR/.claude" ]; then
   fi
 fi
 
+# --- 7. Safety primitives (v0.2.0) --------------------------------------------
+section "Safety primitives"
+# secret_redact lib: must be present and pass its own 8/8 selftest.
+redact_lib=""
+for cand in "$CODEX_HOME/lib/secret_redact.py" "${CODEX_TOOLKIT_ROOT:-}/home/lib/secret_redact.py"; do
+  [ -n "$cand" ] && [ -f "$cand" ] && { redact_lib="$cand"; break; }
+done
+if [ -n "$redact_lib" ]; then
+  ok "secret_redact.py present ($redact_lib)"
+  if codex_have python3 && python3 "$redact_lib" --selftest 2>/dev/null | grep -q "^selftest: 8/8 PASS$"; then
+    ok "secret_redact 8/8 PASS"
+  else
+    fail "secret_redact selftest did not report 8/8. Try: python3 $redact_lib --selftest"
+  fi
+else
+  warn "secret_redact.py not installed. Run: install.sh --home"
+fi
+
+# kill-switch script: must be executable; report current state. Warn if ACTIVE >24h (likely forgotten).
+killswitch=""
+for cand in "$CODEX_HOME/scripts/kill-switch.sh" "${CODEX_TOOLKIT_ROOT:-}/home/scripts/kill-switch.sh"; do
+  [ -n "$cand" ] && [ -f "$cand" ] && { killswitch="$cand"; break; }
+done
+if [ -n "$killswitch" ]; then
+  ok "kill-switch.sh present"
+  flag="$CODEX_HOME/state/kill-switch.flag"
+  if [ -f "$flag" ]; then
+    age_h=$(( ( $(date +%s) - $(date -r "$flag" +%s 2>/dev/null || echo 0) ) / 3600 ))
+    if [ "$age_h" -gt 24 ]; then
+      warn "kill-switch ACTIVE for ${age_h}h (>24h, likely forgotten). Run: kill-switch deactivate"
+    else
+      warn "kill-switch ACTIVE (${age_h}h). codex-run will refuse to invoke codex."
+    fi
+  else
+    ok "kill-switch CLEAR"
+  fi
+else
+  warn "kill-switch.sh not installed. Run: install.sh --home"
+fi
+
 # --- summary ------------------------------------------------------------------
 echo
 echo "Summary: $fails fail, $warns warn"

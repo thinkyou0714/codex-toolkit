@@ -1,0 +1,11 @@
+title = "codex-toolkit"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow redaction library selftest fixtures while scanning repository content."
+paths = [
+  '''home/lib/secret_redact.py''',
+  '''home/lib/SecretRedact.psm1''',
+]

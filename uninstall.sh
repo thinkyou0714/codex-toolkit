@@ -32,7 +32,7 @@ rm_file() {
 
 if [ "$DO_HOME" = 1 ]; then
   echo "==> --home"
-  for f in AGENTS.md AGENTS-full.md env.sh toolkit-root scripts/cost-breaker.py scripts/quota-fallback.py; do
+  for f in AGENTS.md AGENTS-full.md env.sh toolkit-root scripts/cost-breaker.py scripts/quota-fallback.py scripts/kill-switch.sh lib/secret_redact.py lib/SecretRedact.psm1; do
     rm_file "$CODEX_HOME/$f"
   done
   echo "  kept: config.toml, session_context.md, cost-ledger.jsonl (your data)"
@@ -40,7 +40,7 @@ fi
 
 if [ "$DO_SCRIPTS" = 1 ]; then
   echo "==> --scripts"
-  for s in codex_review codex_fix codex_auto_review codex-doctor; do rm_file "$BIN_DIR/$s"; done
+  for s in codex_review codex_fix codex_auto_review codex-doctor codex-run; do rm_file "$BIN_DIR/$s"; done
 fi
 
 if [ "$DO_REPO" = 1 ]; then

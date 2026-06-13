@@ -83,3 +83,6 @@ bash /path/to/codex-toolkit/tests/smoke.sh
   in `env.sh` or `reset` today's ledger if it's stale.
 - **Hooks silently stopped firing** — you almost certainly used a relative path;
   switch to `$CLAUDE_PROJECT_DIR/...`.
+- **`origin/HEAD` points at an old branch** — if
+  `git symbolic-ref refs/remotes/origin/HEAD` shows a deleted or non-default
+  branch, refresh the local remote default with `git remote set-head origin -a`.

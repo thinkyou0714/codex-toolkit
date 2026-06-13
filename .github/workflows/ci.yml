@@ -24,6 +24,11 @@ jobs:
           sudo apt-get install -y shellcheck >/dev/null
           make lint
 
+      - name: Ruff (Python lint)
+        run: |
+          pip install ruff
+          ruff check .
+
   smoke:
     # Run on both Linux and macOS so the portable-path/bash-3.2 promises in the
     # scripts are actually exercised, not just asserted.

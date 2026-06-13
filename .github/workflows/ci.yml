@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -22,13 +22,7 @@ jobs:
         run: |
           sudo apt-get update -y >/dev/null
           sudo apt-get install -y shellcheck >/dev/null
-          # -S warning: enforce warnings/errors, skip benign info notes
-          # (runtime `source`, the `bash -c '...'` idiom, safe `A && b || c`).
-          # Note: home/scripts/*.sh and tests/*.sh added in 0.2.0 (kill-switch + test_safety).
-          shellcheck -S warning \
-            scripts/*.sh home/*.sh install.sh uninstall.sh tests/*.sh \
-            home/scripts/*.sh \
-            repo-template/.codex/skills/lab-research/scripts/*.sh
+          make lint
 
   smoke:
     # Run on both Linux and macOS so the portable-path/bash-3.2 promises in the

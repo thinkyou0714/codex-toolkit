@@ -102,7 +102,35 @@ fi
 if [ -f "$CODEX_PROJECT_DIR/.github/workflows/codex-pr-review.yml" ]; then ok "PR-review workflow present"; else warn "No PR-review workflow (optional)."; fi
 if [ -d "$CODEX_PROJECT_DIR/.codex/skills" ]; then ok ".codex/skills/ present"; else warn ".codex/skills/ absent (optional)."; fi
 
-# --- 6. Claude integration (optional) -----------------------------------------
+# --- 6. Git remote metadata ----------------------------------------------------
+section "Git remote metadata"
+if codex_have git && git -C "$CODEX_PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if git -C "$CODEX_PROJECT_DIR" remote get-url origin >/dev/null 2>&1; then
+    origin_head="$(git -C "$CODEX_PROJECT_DIR" symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)"
+    default_ref="$(GIT_TERMINAL_PROMPT=0 git -C "$CODEX_PROJECT_DIR" ls-remote --symref origin HEAD 2>/dev/null \
+      | sed -n 's/^ref: \(refs\/heads\/.*\)[[:space:]]HEAD$/\1/p' | head -n1 || true)"
+    if [ -n "$default_ref" ]; then
+      expected_head="refs/remotes/origin/${default_ref#refs/heads/}"
+      if [ -z "$origin_head" ]; then
+        warn "origin/HEAD is not set. Run: git remote set-head origin -a"
+      elif [ "$origin_head" = "$expected_head" ]; then
+        ok "origin/HEAD matches default branch ($origin_head)"
+      else
+        warn "origin/HEAD points to $origin_head, expected $expected_head. Run: git remote set-head origin -a"
+      fi
+    elif [ -n "$origin_head" ]; then
+      warn "Cannot query origin default branch; current origin/HEAD is $origin_head"
+    else
+      warn "Cannot query origin default branch, and origin/HEAD is not set. Run: git remote set-head origin -a"
+    fi
+  else
+    ok "No origin remote configured; skipping origin/HEAD check"
+  fi
+else
+  ok "Not a git worktree; skipping origin/HEAD check"
+fi
+
+# --- 7. Claude integration (optional) -----------------------------------------
 if [ -d "$CODEX_PROJECT_DIR/.claude" ]; then
   section "Claude integration"
   settings="$CODEX_PROJECT_DIR/.claude/settings.json"
@@ -115,7 +143,7 @@ if [ -d "$CODEX_PROJECT_DIR/.claude" ]; then
   fi
 fi
 
-# --- 7. Safety primitives (v0.2.0) --------------------------------------------
+# --- 8. Safety primitives (v0.2.0) --------------------------------------------
 section "Safety primitives"
 # secret_redact lib: must be present and pass its own 8/8 selftest.
 redact_lib=""

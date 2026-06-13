@@ -1,0 +1,39 @@
+name: Lint Workflows
+
+# Meta-CI: validates the GitHub Actions workflows themselves so that
+# syntax errors, bad expressions, and shellcheck issues are caught before
+# they break a real run.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Run actionlint
+        env:
+          # Pin the actionlint version so CI is reproducible and a new upstream
+          # release can't unexpectedly change results. Bump deliberately.
+          ACTIONLINT_VERSION: 1.7.12
+        run: |
+          echo "::group::Download actionlint ${ACTIONLINT_VERSION}"
+          bash <(curl -sSf "https://raw.githubusercontent.com/rhysd/actionlint/v${ACTIONLINT_VERSION}/scripts/download-actionlint.bash") "${ACTIONLINT_VERSION}"
+          echo "::endgroup::"
+          # -color for readable output; actionlint also runs shellcheck on run: steps.
+          ./actionlint -color

@@ -2,8 +2,7 @@
 .DEFAULT_GOAL := help
 SHELL := bash
 
-SH_FILES := scripts/*.sh home/*.sh install.sh uninstall.sh tests/smoke.sh \
-            repo-template/.codex/skills/lab-research/scripts/*.sh
+SH_FILES := $(shell git ls-files '*.sh')
 
 .PHONY: help test lint check doctor install install-dry uninstall bump release-check
 

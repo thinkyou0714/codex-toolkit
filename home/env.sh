@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # ~/.codex/env.sh — global Codex environment, sourced by toolkit scripts.
 #
 # Installed from home/env.sh. Contains NO secrets — only tunables and pointers.

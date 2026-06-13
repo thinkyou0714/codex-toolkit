@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # scripts/lib/paths.sh — single source of truth for every path/env the toolkit needs.
 #
 # Why this file exists (root-cause fix):
@@ -49,7 +50,7 @@ export CODEX_BIN="${CODEX_BIN:-codex}"
 # --- Optional global env (cost breaker tunables etc.) --------------------------
 # If the user installed home/env.sh to ~/.codex/env.sh, pull it in. Never fatal.
 if [ -f "$CODEX_HOME/env.sh" ]; then
-  # shellcheck disable=SC1091
+  # shellcheck source=/dev/null
   source "$CODEX_HOME/env.sh" || true
 fi
 

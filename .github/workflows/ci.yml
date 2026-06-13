@@ -29,6 +29,11 @@ jobs:
           pip install ruff
           ruff check .
 
+      - name: codespell
+        run: |
+          pip install codespell
+          codespell
+
   smoke:
     # Run on both Linux and macOS so the portable-path/bash-3.2 promises in the
     # scripts are actually exercised, not just asserted.

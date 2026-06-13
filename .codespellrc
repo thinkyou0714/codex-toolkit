@@ -1,0 +1,5 @@
+[codespell]
+# English typo detection (Japanese text is ignored). Shared by CI / Makefile / local.
+skip = ./.git,./node_modules,./.ruff_cache,./.pytest_cache,*.json,*.lock
+# Comma-separated words to treat as correct (proper nouns / intentional spellings).
+ignore-words-list = thinkyou

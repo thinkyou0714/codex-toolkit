@@ -4,7 +4,7 @@ SHELL := bash
 
 SH_FILES := $(shell git ls-files '*.sh')
 
-.PHONY: help test lint check doctor install install-dry uninstall bump release-check
+.PHONY: help test lint lint-py spell check doctor install install-dry uninstall bump release-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -18,7 +18,17 @@ lint: ## Run shellcheck (warning severity) if available
 		shellcheck -S warning $(SH_FILES) && echo "shellcheck clean"; \
 	else echo "shellcheck not installed; skipping"; fi
 
-check: lint test ## What CI runs: lint + test
+lint-py: ## Run ruff over the Python files if available
+	@if command -v ruff >/dev/null; then \
+		ruff check . && echo "ruff clean"; \
+	else echo "ruff not installed; skipping"; fi
+
+spell: ## Run codespell over English docs/text if available
+	@if command -v codespell >/dev/null; then \
+		codespell && echo "codespell clean"; \
+	else echo "codespell not installed; skipping"; fi
+
+check: lint lint-py spell test ## What CI runs: lint + lint-py + spell + test
 
 doctor: ## Run the health check against this environment
 	@bash scripts/codex-doctor.sh

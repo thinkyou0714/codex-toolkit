@@ -1,0 +1,12 @@
+# Ruff config for the Python files in this repo (claude-integration hooks/scripts,
+# home/lib + home/scripts, repo-template runner, scripts/). Mirrors the rule set
+# used in claude-lab-skills so style/bug-class linting is consistent across the lab.
+line-length = 120
+target-version = "py39"
+extend-exclude = [".git", "__pycache__"]
+
+[lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "E501",  # line length is left to line-length + formatter (JP comments overflow easily)
+]

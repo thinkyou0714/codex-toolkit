@@ -61,7 +61,7 @@ _AMBIGUITY_STEP = 10
 _AMBIGUITY_CAP = 20
 
 
-def _distinct_hits(pat: "re.Pattern[str]", text: str) -> int:
+def _distinct_hits(pat: re.Pattern[str], text: str) -> int:
     return len({m.group(0).lower() for m in pat.finditer(text)})
 
 

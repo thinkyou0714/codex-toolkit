@@ -83,3 +83,12 @@ the Bernstein composition chain) is documented in [docs/SAFETY.md](docs/SAFETY.m
 ## License
 
 MIT — see `LICENSE`.
+
+## Claude Code で使う (web / cloud 対応)
+
+このリポジトリは **Claude Code on the web** に対応しています。
+
+- lint ツール（ruff/codespell）は `.claude/bootstrap.sh`（SessionStart）が pip で自動インストール。`make test`（smoke）は追加依存なし。
+- クラウドセッションは `AGENTS.md` と `.claude/skills/`（例: `run-checks`）を自動ロード。
+- MCP は本リポジトリではローカル専用。詳細は
+  [`.github/docs/claude-code-web-readiness.md`](https://github.com/thinkyou0714/.github/blob/main/docs/claude-code-web-readiness.md)。

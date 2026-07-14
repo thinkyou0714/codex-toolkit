@@ -201,6 +201,13 @@ else
   bad "safety primitives suite"
 fi
 
+echo "== cloud + goal delegation (v0.3.0: codex-cloud-setup + codex-goal) =="
+if bash "$ROOT/tests/test_cloud.sh"; then
+  pass "cloud + goal suite"
+else
+  bad "cloud + goal suite"
+fi
+
 echo
 if [ "$fail" = 0 ]; then echo "✅ smoke PASS"; else echo "❌ smoke FAIL"; fi
 exit "$fail"

@@ -1,0 +1,25 @@
+# ~/.codex/cloud.config.toml — cloud/CI profile overlay (example).
+#
+# Codex layers "$CODEX_HOME/<name>.config.toml" on top of the base config when
+# you pass `-p <name>`, so this file only holds the deltas that make Codex
+# behave in a NON-INTERACTIVE cloud session:
+#
+#   codex exec -p cloud "…task…"
+#
+# Installed to ~/.codex/cloud.config.toml by codex-cloud-setup.sh only when the
+# file is absent — your edits are never overwritten. No secrets in here; auth
+# comes from `codex login` / OPENAI_API_KEY / CODEX_AUTH_JSON_B64.
+
+# There is no human to answer prompts in CI: never ask, let failures return to
+# the model so it can adapt.
+approval_policy = "never"
+
+# workspace-write keeps Codex's own sandbox on inside the container (it works
+# in most cloud containers — codex-cloud-setup verifies). If your runner blocks
+# Landlock/seccomp, switch to "danger-full-access": the container itself is the
+# sandbox then. Never use danger-full-access on a machine you share.
+sandbox_mode = "workspace-write"
+
+# Cloud tasks usually need to fetch deps (npm/pip) from inside the sandbox.
+[sandbox_workspace_write]
+network_access = true

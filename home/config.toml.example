@@ -13,10 +13,10 @@ sandbox_mode = "workspace-write"
 
 # Approval policy for actions outside the sandbox.
 #   untrusted   : auto-run known-safe reads, ask for anything mutating
-#   on-failure  : auto-run; if the sandboxed command fails, ask before retrying
-#                 outside the sandbox
 #   on-request  : the model decides when to ask
-#   never       : never ask (use only with a strict sandbox)
+#   never       : never ask (use only with a strict sandbox; `codex exec`
+#                 always behaves like this — nobody is there to answer)
+# ("on-failure" existed in older CLIs and has been removed.)
 approval_policy = "on-request"
 
 # Enable outbound network from the workspace-write sandbox. Without this,

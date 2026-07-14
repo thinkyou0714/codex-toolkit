@@ -1,5 +1,10 @@
 # Setup
 
+> **Cloud session?** (Claude Code on the web, GitHub Actions, Codespaces,
+> devcontainer) — skip this page and run `scripts/codex-cloud-setup.sh`; it
+> performs steps 1–2 automatically. Details, auth options, and network-policy
+> requirements: [CLOUD.md](CLOUD.md).
+
 ## Prerequisites
 - The Codex CLI on PATH (`command -v codex`). Install per OpenAI's instructions.
 - `python3` (stdlib only; no pip installs needed).

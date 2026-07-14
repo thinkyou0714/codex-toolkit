@@ -32,15 +32,15 @@ rm_file() {
 
 if [ "$DO_HOME" = 1 ]; then
   echo "==> --home"
-  for f in AGENTS.md AGENTS-full.md env.sh toolkit-root scripts/cost-breaker.py scripts/quota-fallback.py scripts/kill-switch.sh lib/secret_redact.py lib/SecretRedact.psm1; do
+  for f in AGENTS.md AGENTS-full.md env.sh toolkit-root scripts/cost-breaker.py scripts/quota-fallback.py scripts/kill-switch.sh lib/secret_redact.py lib/SecretRedact.psm1 templates/goal.md; do
     rm_file "$CODEX_HOME/$f"
   done
-  echo "  kept: config.toml, session_context.md, cost-ledger.jsonl (your data)"
+  echo "  kept: config.toml, cloud.config.toml, session_context.md, cost-ledger.jsonl (your data)"
 fi
 
 if [ "$DO_SCRIPTS" = 1 ]; then
   echo "==> --scripts"
-  for s in codex_review codex_fix codex_auto_review codex-doctor codex-run; do rm_file "$BIN_DIR/$s"; done
+  for s in codex_review codex_fix codex_auto_review codex-doctor codex-run codex-goal codex-cloud-setup; do rm_file "$BIN_DIR/$s"; done
 fi
 
 if [ "$DO_REPO" = 1 ]; then
@@ -67,7 +67,9 @@ fi
 if [ "$DO_CLAUDE" = 1 ]; then
   echo "==> --claude"
   rm_file "$PROJECT_DIR/.claude/skills/codex-delegate/SKILL.md"
+  rm_file "$PROJECT_DIR/.claude/skills/codex-goal/SKILL.md"
   rm_file "$PROJECT_DIR/.claude/commands/codex-delegate.md"
+  rm_file "$PROJECT_DIR/.claude/commands/codex-goal.md"
   rm_file "$PROJECT_DIR/.claude/hooks/codex_psm_sync.py"
   rm_file "$PROJECT_DIR/.claude/hooks/codex_auto_delegate.py"
   rm_file "$PROJECT_DIR/.claude/scripts/assess_plan_delegatability.py"

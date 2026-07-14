@@ -40,6 +40,34 @@ default:
 
 This is why a script written for one laptop now runs anywhere.
 
+## Cloud bootstrap & goal delegation (v0.3.0)
+
+Ephemeral sessions (Claude Code on the web, CI) get the same setup as a
+laptop, derived from the repo instead of the machine:
+
+```
+.claude/bootstrap.sh (SessionStart)
+  └─ codex-cloud-setup.sh: detect env -> npm install CLI -> wire auth
+       (login --with-api-key | CODEX_AUTH_JSON | CODEX_API_KEY)
+       -> install.sh --home --scripts -> seed ~/.codex/cloud.config.toml
+       -> egress preflight (api.openai.com / auth.openai.com / chatgpt.com)
+```
+
+Delegation runs through one contract:
+
+```
+codex-goal.sh
+  ├─ render /goal brief (home/templates/goal.md: purpose/files/forbid/done/verify)
+  ├─ cost-breaker check ── trip -> exit 3
+  ├─ codex-run.sh (kill-switch gate + redaction + failure log) ── ACTIVE -> exit 7
+  │    └─ codex exec -C <project> -o <last-message> [-p cloud] -   (brief on stdin)
+  ├─ watchdog: no exit within CODEX_GOAL_TIMEOUT_S (300) -> kill tree, retry once
+  └─ still failing -> exit 6 = ESCALATE (orchestrator implements inline or asks)
+```
+
+The exit codes are the API: an orchestrator (Claude Code, CI) branches on
+0/3/6/7 instead of parsing prose. See `docs/CLOUD.md`.
+
 ## Data flow: review → ingest
 
 ```

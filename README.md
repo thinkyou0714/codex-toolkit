@@ -21,12 +21,15 @@ those at the root and ships them as something you can `install.sh` into any repo
 ```
 home/               -> installs to ~/.codex (global agent config)
   AGENTS.md(+full)  compressed global instructions (+ full reference)
-  config.toml.example, env.sh, session_context.md.example
-  scripts/cost-breaker.py, quota-fallback.py
-scripts/            portable wrappers (review/fix/auto-review) + lib/paths.sh
+  config.toml.example, cloud.config.toml.example, env.sh
+  templates/goal.md (the /goal delegation brief)
+  scripts/cost-breaker.py, quota-fallback.py, kill-switch.sh
+scripts/            portable wrappers (review/fix/auto-review/goal/cloud-setup)
+                    + lib/paths.sh
 repo-template/      drop into any repo: AGENTS.md, .github CI, .codex skills
-claude-integration/ optional Claude Code drop-in (skill, command, hooks)
-docs/               ARCHITECTURE, SETUP, STRATEGY, PROMPT-PATTERNS
+claude-integration/ optional Claude Code drop-in (skills, commands, hooks)
+docs/               ARCHITECTURE, SETUP, STRATEGY, PROMPT-PATTERNS,
+                    CLOUD (cloud/CI setup), IDEAS-100 (usage catalog, ja)
 install.sh / uninstall.sh   idempotent, --dry-run
 tests/smoke.sh      validation; CI runs it
 ```
@@ -89,6 +92,8 @@ MIT — see `LICENSE`.
 このリポジトリは **Claude Code on the web** に対応しています。
 
 - lint ツール（ruff/codespell）は `.claude/bootstrap.sh`（SessionStart）が pip で自動インストール。`make test`（smoke）は追加依存なし。
+- 同じフックが `scripts/codex-cloud-setup.sh` を実行し、**Codex CLI をクラウドセッションで即使える状態**にします（インストール → 認証 → cloud プロファイル）。無効化は `CODEX_CLOUD_BOOTSTRAP=0`。前提・認証・ネットワークポリシーは [`docs/CLOUD.md`](docs/CLOUD.md)。
+- 実装タスクの委譲は `scripts/codex-goal.sh`（/goal 契約 + 5 分ウォッチドッグ + 2 連続失敗でエスカレート）。活用アイデア 100 連発は [`docs/IDEAS-100.md`](docs/IDEAS-100.md)。
 - クラウドセッションは `AGENTS.md` と `.claude/skills/`（例: `run-checks`）を自動ロード。
 - MCP は本リポジトリではローカル専用。詳細は
   [`.github/docs/claude-code-web-readiness.md`](https://github.com/thinkyou0714/.github/blob/main/docs/claude-code-web-readiness.md)。

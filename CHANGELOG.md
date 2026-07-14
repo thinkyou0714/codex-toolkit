@@ -4,6 +4,61 @@ All notable changes to this project are documented here. Format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); this project uses semantic
 versioning.
 
+## [0.3.0] - 2026-07-14
+
+Cloud enablement + goal-contract delegation: make the Codex CLI a one-command
+property of any cloud session, and make delegation to Codex deterministic.
+
+### Added
+- `scripts/codex-cloud-setup.sh` — idempotent cloud/CI bootstrap: environment
+  detection (github-actions / codespaces / devcontainer / claude-cloud /
+  container), npm install of the CLI (pin via `CODEX_CLI_VERSION`), headless
+  auth wiring (`OPENAI_API_KEY` piped to `codex login --with-api-key`,
+  `CODEX_AUTH_JSON(_B64)` restored 0600, `CODEX_API_KEY` recognized), global
+  toolkit install, cloud profile seeding, and an egress preflight that names
+  blocked domains. `--dry-run` / `--check` / `--strict` / `--no-egress`.
+- `scripts/codex-goal.sh` — /goal-contract delegation to `codex exec`: renders
+  a complete brief (purpose / target files / out-of-bounds / definition of
+  done / verify) from `home/templates/goal.md`, gates through the kill switch
+  (exit 7) and cost breaker (exit 3), applies a portable watchdog timeout
+  (`CODEX_GOAL_TIMEOUT_S`, default 300s — `codex exec` has no built-in
+  timeout), retries once, and exits 6 ("escalate") after two consecutive
+  failures so orchestrators can branch deterministically. Prints
+  `git diff --stat` + the `-o` last-message path as evidence on success.
+- `home/templates/goal.md` — the bilingual /goal brief template, including the
+  autonomy snippet ("do not stop at investigation") and a blocked-stop
+  condition, per OpenAI's Goals/prompting guidance.
+- `home/cloud.config.toml.example` — non-interactive cloud profile overlay
+  (`codex exec -p cloud`): `approval_policy = "never"`, workspace-write with
+  sandbox network access on. Installed to `~/.codex/cloud.config.toml` only
+  when absent; treated as user data by uninstall.
+- Claude integration: `codex-goal` skill + `/codex-goal` command encoding the
+  full protocol (resolve spec forks before delegating; verify the diff, not
+  the summary; exit-code branching; no silent third retry).
+- `codex-doctor.sh` — new "Cloud readiness" section (environment, npm/CLI,
+  auth state incl. env credentials, proxy/CA visibility) and an opt-in
+  `--network` egress probe of the three OpenAI endpoints.
+- `.claude/bootstrap.sh` now runs the cloud setup on SessionStart (best
+  effort, quiet; opt out with `CODEX_CLOUD_BOOTSTRAP=0`).
+- `tests/test_cloud.sh` (wired into `smoke.sh`): dry-run purity, auth wiring
+  via secret and via API key (stub codex), /goal brief rendering, watchdog
+  timeout → retry → exit 6, kill-switch exit 7, and the install/uninstall
+  round-trip for the new files.
+- Docs: `docs/CLOUD.md` (auth matrix, network-policy domains, container
+  sandboxing, GitHub Actions recipes, headless gotchas) and
+  `docs/IDEAS-100.md` (100-idea catalog for using Codex as the implementation
+  worker, with per-idea implementation status).
+
+### Changed
+- `install.sh --home` also installs `templates/goal.md` and seeds
+  `cloud.config.toml`; `--scripts` symlinks `codex-goal` and
+  `codex-cloud-setup`. `uninstall.sh` mirrors both (keeps
+  `cloud.config.toml`).
+- `home/env.sh` / `.env.example`: new `CODEX_GOAL_*`, `CODEX_CLI_VERSION`,
+  `CODEX_CLOUD_BOOTSTRAP` tunables.
+- `home/config.toml.example`: removed the retired `on-failure` approval
+  policy from the comments.
+
 ## [0.2.0] - 2026-05-29
 
 Quality bump (evaluation gap closure) + minimal LAB safety primitives port.

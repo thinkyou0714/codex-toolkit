@@ -5,6 +5,8 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=tests/lib/stub_codex.sh
+source "$ROOT/tests/lib/stub_codex.sh"
 fail=0
 pass() { echo "  ok   $*"; }
 bad()  { echo "  FAIL $*"; fail=1; }
@@ -117,12 +119,7 @@ echo "== end-to-end (mock codex) =="
 if command -v git >/dev/null 2>&1; then
   tmp="$(mktemp -d)"
   # Stub codex on PATH: drains stdin and exits 0 with a marker.
-  cat > "$tmp/codex" <<'STUB'
-#!/usr/bin/env bash
-echo "MOCK_CODEX_OK"
-cat >/dev/null
-STUB
-  chmod +x "$tmp/codex"
+  make_stub_codex "$tmp/codex" ok
   # Tiny git repo with a diff for codex_review.sh to consume. Disable signing
   # in case the host enforces it (the test must work without a signing setup).
   ( cd "$tmp" && git init -q && git config user.email t@t && git config user.name t \
@@ -172,11 +169,7 @@ if command -v git >/dev/null 2>&1; then
   # Stub codex on PATH so the CLI check passes; --version prints, anything else
   # just drains stdin.
   mkdir -p "$tmp/bin"
-  cat > "$tmp/bin/codex" <<'STUB'
-#!/usr/bin/env bash
-case "${1:-}" in --version) echo "codex 0.0.0-stub" ;; *) cat >/dev/null ;; esac
-STUB
-  chmod +x "$tmp/bin/codex"
+  make_stub_codex "$tmp/bin/codex" version
   # Real global config + a scaffolded project with placeholders filled in.
   CODEX_HOME="$tmp/.codex" CODEX_BIN_DIR="$tmp/bin" bash install.sh --home --scripts >/dev/null 2>&1
   proj="$tmp/proj"; mkdir -p "$proj"
@@ -199,6 +192,13 @@ if bash "$ROOT/tests/test_safety.sh"; then
   pass "safety primitives suite"
 else
   bad "safety primitives suite"
+fi
+
+echo "== cloud + goal delegation (v0.3.0: codex-cloud-setup + codex-goal) =="
+if bash "$ROOT/tests/test_cloud.sh"; then
+  pass "cloud + goal suite"
+else
+  bad "cloud + goal suite"
 fi
 
 echo

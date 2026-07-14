@@ -74,3 +74,57 @@ codex_require() {
 
 # codex_die: print to stderr and exit non-zero.
 codex_die() { echo "error: $*" >&2; exit 1; }
+
+# --- Cloud / CI helpers (single source of truth; used by cloud-setup + doctor) --
+
+# codex_cloud_env: echo the environment class, one of
+# github-actions | codespaces | devcontainer | claude-cloud | container | local.
+# Keep this the ONLY place env detection lives so the tools never disagree.
+codex_cloud_env() {
+  if [ "${GITHUB_ACTIONS:-}" = "true" ]; then echo "github-actions"
+  elif [ "${CODESPACES:-}" = "true" ]; then echo "codespaces"
+  elif [ -n "${REMOTE_CONTAINERS:-}${DEVCONTAINER:-}" ]; then echo "devcontainer"
+  elif [ -n "${CCR_AGENT_PROXY_ENABLED:-}" ] || [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then echo "claude-cloud"
+  elif [ -f /.dockerenv ] || [ -n "${container:-}" ]; then echo "container"
+  else echo "local"; fi
+}
+
+# The OpenAI endpoints Codex needs outbound HTTPS to. Single source of truth so
+# the setup preflight and the doctor probe (and docs/CLOUD.md) never drift.
+export CODEX_OPENAI_HOSTS="${CODEX_OPENAI_HOSTS:-api.openai.com auth.openai.com chatgpt.com}"
+
+# codex_egress_probe HOST: 0 if reachable over HTTPS, 1 if blocked, 2 if no curl.
+codex_egress_probe() {
+  codex_have curl || return 2
+  curl -sS -o /dev/null --max-time 8 "https://$1/" 2>/dev/null
+}
+
+# codex_auth_env_source: echo the first available env credential var name
+# (OPENAI_API_KEY | CODEX_API_KEY | CODEX_AUTH_JSON | CODEX_AUTH_JSON_B64), else
+# nothing + return 1. Shared so setup and doctor accept the same credential set.
+codex_auth_env_source() {
+  local v
+  for v in OPENAI_API_KEY CODEX_API_KEY CODEX_AUTH_JSON CODEX_AUTH_JSON_B64; do
+    if [ -n "${!v:-}" ]; then echo "$v"; return 0; fi
+  done
+  return 1
+}
+
+# --- Cost circuit-breaker gate (shared by codex_fix / codex_review / codex-goal) --
+
+# codex_cost_gate LABEL EST: 0 to proceed, 1 to abort. Honors
+# CODEX_COST_BREAKER_OFF and skips (allows) when the breaker or python3 is absent.
+codex_cost_gate() {
+  local label="$1" est="$2" breaker="$CODEX_HOME/scripts/cost-breaker.py"
+  if [ ! -f "$breaker" ] || ! codex_have python3; then return 0; fi
+  if python3 "$breaker" check --label "$label" --est-usd "$est" 2>/dev/null; then return 0; fi
+  [ "${CODEX_COST_BREAKER_OFF:-0}" = "1" ] && return 0
+  return 1
+}
+
+# codex_cost_record LABEL EST: record spend to the ledger (best effort, never fatal).
+codex_cost_record() {
+  local label="$1" est="$2" breaker="$CODEX_HOME/scripts/cost-breaker.py"
+  if [ ! -f "$breaker" ] || ! codex_have python3; then return 0; fi
+  python3 "$breaker" record --usd "$est" --label "$label" >/dev/null 2>&1 || true
+}

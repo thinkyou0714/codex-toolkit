@@ -12,6 +12,7 @@
 #   codex-doctor.sh             # human-friendly report
 #   codex-doctor.sh --strict    # exit non-zero on any fail or warn (for CI)
 #   codex-doctor.sh --quiet     # only print fails/warns
+#   codex-doctor.sh --network   # also probe OpenAI egress (needs curl)
 set -uo pipefail
 
 # --- self-locating, like the other wrappers (handles symlink install) ----------
@@ -29,12 +30,13 @@ else echo "error: cannot locate scripts/lib/paths.sh (set CODEX_TOOLKIT_ROOT)" >
 # shellcheck source=lib/paths.sh
 source "$_lib"
 
-STRICT=0; QUIET=0
+STRICT=0; QUIET=0; NETWORK=0
 for arg in "$@"; do
   case "$arg" in
     --strict) STRICT=1 ;;
     --quiet)  QUIET=1 ;;
-    -h|--help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --network) NETWORK=1 ;;
+    -h|--help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown arg: $arg" >&2; exit 2 ;;
   esac
 done
@@ -57,6 +59,38 @@ if codex_have "$CODEX_BIN"; then
   fi
 else
   fail "$CODEX_BIN not on PATH. Install: 'npm install -g @openai/codex' (Node 18+)."
+fi
+
+# --- 1b. Cloud readiness --------------------------------------------------------
+section "Cloud readiness"
+cloud_env="$(codex_cloud_env)"
+ok "environment: $cloud_env"
+# CLI presence is reported by the "Codex CLI" section above; here we only add the
+# cloud-specific remediation pointer (not a second fail) when it's missing.
+if [ "$cloud_env" != "local" ] && ! codex_have "$CODEX_BIN"; then
+  ok "bootstrap available: codex-cloud-setup.sh (install + auth in one command)"
+fi
+# Auth: a live login wins; otherwise env-provided credentials count as ready
+# (codex-cloud-setup.sh turns them into a login at session start).
+if codex_have "$CODEX_BIN" && "$CODEX_BIN" login status </dev/null >/dev/null 2>&1; then
+  ok "codex auth: logged in"
+elif auth_src="$(codex_auth_env_source)"; then
+  ok "codex auth: credentials available via env ($auth_src; run codex-cloud-setup.sh to wire)"
+else
+  warn "codex auth: not logged in and none of OPENAI_API_KEY / CODEX_API_KEY / CODEX_AUTH_JSON / CODEX_AUTH_JSON_B64 set. See docs/CLOUD.md"
+fi
+[ -n "${HTTPS_PROXY:-${https_proxy:-}}" ] && ok "proxy: HTTPS_PROXY set"
+[ -n "${SSL_CERT_FILE:-}" ] && ok "proxy CA: SSL_CERT_FILE=${SSL_CERT_FILE}"
+if [ "$NETWORK" = 1 ] && codex_have curl; then
+  for h in $CODEX_OPENAI_HOSTS; do
+    if codex_egress_probe "$h"; then
+      ok "egress: https://$h reachable"
+    else
+      warn "egress: https://$h blocked — allow it in this environment's network policy"
+    fi
+  done
+else
+  ok "egress probe skipped (opt in with --network)"
 fi
 
 # --- 2. Environment -----------------------------------------------------------

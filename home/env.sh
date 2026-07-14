@@ -18,6 +18,23 @@ export CODEX_BIN="${CODEX_BIN:-codex}"
 export CODEX_REVIEW_MODEL="${CODEX_REVIEW_MODEL:-gpt-5-codex}"
 export CODEX_FIX_MODEL="${CODEX_FIX_MODEL:-gpt-5-codex}"
 
+# --- Goal-driven delegation (codex-goal.sh) ------------------------------------
+# Watchdog: kill a codex exec attempt that produced no exit after this many
+# seconds (the "no reply in 5 minutes -> assume stuck, re-delegate" rule).
+export CODEX_GOAL_TIMEOUT_S="${CODEX_GOAL_TIMEOUT_S:-300}"
+# Retries after the first failed/timed-out attempt (1 -> two attempts total,
+# then exit 6 = escalate to the orchestrator/user).
+export CODEX_GOAL_RETRIES="${CODEX_GOAL_RETRIES:-1}"
+export CODEX_GOAL_MODEL="${CODEX_GOAL_MODEL:-${CODEX_FIX_MODEL:-gpt-5-codex}}"
+# Profile layered onto config.toml (-p <name> loads $CODEX_HOME/<name>.config.toml).
+# Set to "cloud" in cloud/CI sessions; empty = base config only.
+export CODEX_GOAL_PROFILE="${CODEX_GOAL_PROFILE:-}"
+export CODEX_GOAL_EST_USD="${CODEX_GOAL_EST_USD:-0.60}"
+
+# --- Cloud bootstrap (codex-cloud-setup.sh) -------------------------------------
+# Pin the CLI version installed in ephemeral sessions (empty = latest).
+export CODEX_CLI_VERSION="${CODEX_CLI_VERSION:-}"
+
 # --- Cost circuit-breaker tunables --------------------------------------------
 # Daily spend ceiling in USD; the breaker trips when the estimated running total
 # for the UTC day exceeds this. Set 0 to disable the ceiling.

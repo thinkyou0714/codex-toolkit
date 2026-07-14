@@ -21,6 +21,10 @@ CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 BIN_DIR="${CODEX_BIN_DIR:-$HOME/.local/bin}"
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
+# Single source of truth for which wrappers get symlinked (shared with uninstall).
+# shellcheck source=scripts/lib/wrappers.sh
+source "$TOOLKIT_ROOT/scripts/lib/wrappers.sh"
+
 DRY_RUN=0
 DO_HOME=0 DO_REPO=0 DO_CLAUDE=0 DO_SCRIPTS=0
 
@@ -88,8 +92,11 @@ if [ "$DO_HOME" = 1 ]; then
   copy_file "$TOOLKIT_ROOT/home/scripts/kill-switch.sh"    "$CODEX_HOME/scripts/kill-switch.sh"
   copy_file "$TOOLKIT_ROOT/home/lib/secret_redact.py"      "$CODEX_HOME/lib/secret_redact.py"
   copy_file "$TOOLKIT_ROOT/home/lib/SecretRedact.psm1"     "$CODEX_HOME/lib/SecretRedact.psm1"
+  # v0.3.0: the /goal delegation brief template.
+  copy_file "$TOOLKIT_ROOT/home/templates/goal.md"         "$CODEX_HOME/templates/goal.md"
   # Examples are installed only if the real file is absent (never clobber config).
   [ -f "$CODEX_HOME/config.toml" ] || copy_file "$TOOLKIT_ROOT/home/config.toml.example" "$CODEX_HOME/config.toml"
+  [ -f "$CODEX_HOME/cloud.config.toml" ] || copy_file "$TOOLKIT_ROOT/home/cloud.config.toml.example" "$CODEX_HOME/cloud.config.toml"
   [ -f "$CODEX_HOME/session_context.md" ] || copy_file "$TOOLKIT_ROOT/home/session_context.md.example" "$CODEX_HOME/session_context.md"
   # Record where the toolkit lives so skills can resolve it.
   run "write $CODEX_HOME/toolkit-root" bash -c 'mkdir -p "$1" && printf "%s\n" "$2" > "$1/toolkit-root"' _ "$CODEX_HOME" "$TOOLKIT_ROOT"
@@ -101,16 +108,11 @@ if [ "$DO_SCRIPTS" = 1 ]; then
   # Symlink (not copy) so wrappers always resolve their sibling lib/paths.sh in
   # the real toolkit checkout. A copy would orphan them from lib/ and break.
   run "mkdir -p $BIN_DIR" mkdir -p "$BIN_DIR"
-  for s in codex_review.sh codex_fix.sh codex_auto_review.sh codex-doctor.sh codex-run.sh; do
-    # codex-doctor.sh keeps its dash in the installed name (it's a one-shot
-    # diagnostic, not a verb).
-    case "$s" in
-      codex-doctor.sh) link_name="codex-doctor" ;;
-      *)               link_name="${s%.sh}" ;;
-    esac
+  while read -r s link_name; do
+    [ -n "$s" ] || continue
     run "symlink $BIN_DIR/$link_name -> $TOOLKIT_ROOT/scripts/$s" \
       ln -sf "$TOOLKIT_ROOT/scripts/$s" "$BIN_DIR/$link_name"
-  done
+  done < <(codex_wrapper_manifest)
   echo "  note: ensure $BIN_DIR is on your PATH."
 fi
 

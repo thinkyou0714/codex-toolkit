@@ -63,35 +63,27 @@ fi
 
 # --- 1b. Cloud readiness --------------------------------------------------------
 section "Cloud readiness"
-cloud_env="local"
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then cloud_env="github-actions"
-elif [ "${CODESPACES:-}" = "true" ]; then cloud_env="codespaces"
-elif [ -n "${REMOTE_CONTAINERS:-}${DEVCONTAINER:-}" ]; then cloud_env="devcontainer"
-elif [ -n "${CCR_AGENT_PROXY_ENABLED:-}" ] || [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then cloud_env="claude-cloud"
-elif [ -f /.dockerenv ] || [ -n "${container:-}" ]; then cloud_env="container"
-fi
+cloud_env="$(codex_cloud_env)"
 ok "environment: $cloud_env"
-if ! codex_have "$CODEX_BIN"; then
-  if codex_have npm; then
-    warn "codex missing but npm present — run: codex-cloud-setup.sh"
-  else
-    fail "codex missing and no npm. Install Node 18+, then run codex-cloud-setup.sh"
-  fi
+# CLI presence is reported by the "Codex CLI" section above; here we only add the
+# cloud-specific remediation pointer (not a second fail) when it's missing.
+if [ "$cloud_env" != "local" ] && ! codex_have "$CODEX_BIN"; then
+  ok "bootstrap available: codex-cloud-setup.sh (install + auth in one command)"
 fi
 # Auth: a live login wins; otherwise env-provided credentials count as ready
 # (codex-cloud-setup.sh turns them into a login at session start).
 if codex_have "$CODEX_BIN" && "$CODEX_BIN" login status </dev/null >/dev/null 2>&1; then
   ok "codex auth: logged in"
-elif [ -n "${OPENAI_API_KEY:-}${CODEX_API_KEY:-}${CODEX_AUTH_JSON:-}${CODEX_AUTH_JSON_B64:-}" ]; then
-  ok "codex auth: credentials available via env (run codex-cloud-setup.sh to wire)"
+elif auth_src="$(codex_auth_env_source)"; then
+  ok "codex auth: credentials available via env ($auth_src; run codex-cloud-setup.sh to wire)"
 else
-  warn "codex auth: not logged in and no OPENAI_API_KEY / CODEX_API_KEY / CODEX_AUTH_JSON_B64. See docs/CLOUD.md"
+  warn "codex auth: not logged in and none of OPENAI_API_KEY / CODEX_API_KEY / CODEX_AUTH_JSON / CODEX_AUTH_JSON_B64 set. See docs/CLOUD.md"
 fi
 [ -n "${HTTPS_PROXY:-${https_proxy:-}}" ] && ok "proxy: HTTPS_PROXY set"
 [ -n "${SSL_CERT_FILE:-}" ] && ok "proxy CA: SSL_CERT_FILE=${SSL_CERT_FILE}"
 if [ "$NETWORK" = 1 ] && codex_have curl; then
-  for h in api.openai.com auth.openai.com chatgpt.com; do
-    if curl -sS -o /dev/null --max-time 8 "https://$h/" 2>/dev/null; then
+  for h in $CODEX_OPENAI_HOSTS; do
+    if codex_egress_probe "$h"; then
       ok "egress: https://$h reachable"
     else
       warn "egress: https://$h blocked — allow it in this environment's network policy"

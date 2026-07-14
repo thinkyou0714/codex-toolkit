@@ -58,6 +58,14 @@ property of any cloud session, and make delegation to Codex deterministic.
   `CODEX_CLOUD_BOOTSTRAP` tunables.
 - `home/config.toml.example`: removed the retired `on-failure` approval
   policy from the comments.
+- Consolidated duplication into `scripts/lib/paths.sh` (the single-source-of-
+  truth resolver): `codex_cloud_env`, `CODEX_OPENAI_HOSTS` + `codex_egress_probe`
+  (shared by the setup preflight and the doctor probe), `codex_auth_env_source`,
+  and `codex_cost_gate` / `codex_cost_record` (now used by `codex_fix`,
+  `codex_review`, and `codex-goal` instead of three inline copies).
+- `codex-goal.sh` now records watchdog timeouts and escalations to
+  `failures.jsonl` (redacted) — a run the watchdog kills can't self-log through
+  `codex-run.sh`, so incident triage would otherwise be blind to timeouts.
 
 ## [0.2.0] - 2026-05-29
 

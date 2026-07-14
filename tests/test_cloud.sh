@@ -93,6 +93,11 @@ out="$(CODEX_HOME="$TMP/goal-home" CODEX_LOG_DIR="$TMP/goal-logs" \
       bash scripts/codex-goal.sh --timeout 1 --retries 1 "task" 2>&1)" && rc=0 || rc=$?
 [ "${rc:-0}" = 6 ] && pass "escalates with exit 6 after all attempts" || bad "expected exit 6, got $rc"
 echo "$out" | grep -q "attempt 2/2" && pass "retried before escalating" || bad "no retry attempt seen (out: $out)"
+# A watchdog-killed run can't self-log via codex-run; codex-goal must record it.
+grep -q '"category":"goal_timeout"' "$TMP/goal-logs/failures.jsonl" 2>/dev/null \
+  && pass "timeout recorded to failures.jsonl" || bad "no goal_timeout entry in failures.jsonl"
+grep -q '"category":"goal_escalate"' "$TMP/goal-logs/failures.jsonl" 2>/dev/null \
+  && pass "escalation recorded to failures.jsonl" || bad "no goal_escalate entry in failures.jsonl"
 
 echo "== codex-goal honors the kill switch (exit 7, no retry) =="
 CODEX_HOME="$TMP/goal-home" CODEX_LOG_DIR="$TMP/goal-logs" \

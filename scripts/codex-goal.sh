@@ -140,19 +140,26 @@ if [ "$DRY_RUN" = 1 ]; then
   exit 0
 fi
 
-# --- cost gate -------------------------------------------------------------------
-BREAKER="$CODEX_HOME/scripts/cost-breaker.py"
-cost_check() {
-  if [ ! -f "$BREAKER" ] || ! codex_have python3; then return 0; fi
-  if ! python3 "$BREAKER" check --label goal --est-usd "$EST" 2>/dev/null; then
-    echo "codex-goal: cost circuit-breaker tripped — delegation skipped." >&2
-    [ "${CODEX_COST_BREAKER_OFF:-0}" = "1" ] || return 1
+# --- failure logging -------------------------------------------------------------
+# The watchdog kills codex-run.sh from the outside, so its own nonzero_exit /
+# timeout entry never gets written. Log those here instead, redacting through the
+# shared secret_redact.py (AGENTS.md rule 6), so incident triage isn't blind.
+REDACT_PY=""
+for cand in "$CODEX_HOME/lib/secret_redact.py" "$CODEX_TOOLKIT_ROOT/home/lib/secret_redact.py"; do
+  [ -f "$cand" ] && { REDACT_PY="$cand"; break; }
+done
+log_goal_failure() {
+  # log_goal_failure <category> <exit_code> <detail-text>
+  local category="$1" code="$2" detail="$3" ts detail_red detail_json
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  if [ -n "$REDACT_PY" ] && codex_have python3; then
+    detail_red=$(printf '%s' "$detail" | python3 "$REDACT_PY")
+  else
+    detail_red="$detail"
   fi
-  return 0
-}
-cost_record() {
-  if [ ! -f "$BREAKER" ] || ! codex_have python3; then return 0; fi
-  python3 "$BREAKER" record --usd "$EST" --label goal >/dev/null 2>&1 || true
+  detail_json=$(printf '%s' "$detail_red" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().strip()))' 2>/dev/null || printf '"%s"' "$detail_red")
+  printf '{"ts":"%s","hook":"codex-goal","category":"%s","exit_code":%s,"detail":%s}\n' \
+    "$ts" "$category" "$code" "$detail_json" >> "$CODEX_LOG_DIR/failures.jsonl" 2>/dev/null || true
 }
 
 # --- watchdog runner (portable: no GNU timeout on macOS) --------------------------
@@ -183,13 +190,17 @@ echo "==> codex-goal: model=$MODEL timeout=${TIMEOUT_S}s attempts=$attempts proj
 n=0 rc=1
 while [ "$n" -lt "$attempts" ]; do
   n=$((n+1))
-  cost_check || exit 3
+  if ! codex_cost_gate goal "$EST"; then
+    echo "codex-goal: cost circuit-breaker tripped — delegation skipped." >&2
+    exit 3
+  fi
   run_attempt; rc=$?
-  cost_record
+  codex_cost_record goal "$EST"
   case "$rc" in
     0)  break ;;
     7)  exit 7 ;;  # kill-switch: never retry past an emergency stop
-    124) echo "codex-goal: attempt $n/$attempts timed out after ${TIMEOUT_S}s." >&2 ;;
+    124) echo "codex-goal: attempt $n/$attempts timed out after ${TIMEOUT_S}s." >&2
+         log_goal_failure goal_timeout 124 "attempt $n/$attempts timed out after ${TIMEOUT_S}s (model=$MODEL)" ;;
     *)  echo "codex-goal: attempt $n/$attempts failed (exit $rc)." >&2 ;;
   esac
   [ "$n" -lt "$attempts" ] && echo "codex-goal: retrying..." >&2
@@ -198,6 +209,7 @@ done
 if [ "$rc" != 0 ]; then
   echo "codex-goal: ESCALATE — $attempts consecutive attempt(s) failed." >&2
   echo "  Next step per protocol: implement inline (Claude/you) or ask the user." >&2
+  log_goal_failure goal_escalate 6 "$attempts consecutive attempt(s) failed (last rc=$rc)"
   exit 6
 fi
 

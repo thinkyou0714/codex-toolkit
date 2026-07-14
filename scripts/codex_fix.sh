@@ -40,12 +40,9 @@ fi
 # Optional cost gate (estimate-based): check before, record after, so the daily
 # ledger actually accumulates and can trip on the Nth call of the day.
 EST="${CODEX_FIX_EST_USD:-0.40}"
-BREAKER="$CODEX_HOME/scripts/cost-breaker.py"
-if [ -f "$BREAKER" ] && codex_have python3; then
-  if ! python3 "$BREAKER" check --label fix --est-usd "$EST" 2>/dev/null; then
-    echo "Cost circuit-breaker tripped — fix skipped. Override with CODEX_COST_BREAKER_OFF=1." >&2
-    [ "${CODEX_COST_BREAKER_OFF:-0}" = "1" ] || exit 3
-  fi
+if ! codex_cost_gate fix "$EST"; then
+  echo "Cost circuit-breaker tripped — fix skipped. Override with CODEX_COST_BREAKER_OFF=1." >&2
+  exit 3
 fi
 
 MODEL="${CODEX_FIX_MODEL:-gpt-5-codex}"
@@ -60,7 +57,5 @@ else
   status=$?
 fi
 
-if [ "$status" = 0 ] && [ -f "$BREAKER" ] && codex_have python3; then
-  python3 "$BREAKER" record --usd "$EST" --label fix >/dev/null 2>&1 || true
-fi
+if [ "$status" = 0 ]; then codex_cost_record fix "$EST"; fi
 exit "$status"

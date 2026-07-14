@@ -68,13 +68,7 @@ act()  {
 }
 
 # --- 1) detect -----------------------------------------------------------------
-cloud_env="local"
-if [ "${GITHUB_ACTIONS:-}" = "true" ]; then cloud_env="github-actions"
-elif [ "${CODESPACES:-}" = "true" ]; then cloud_env="codespaces"
-elif [ -n "${REMOTE_CONTAINERS:-}${DEVCONTAINER:-}" ]; then cloud_env="devcontainer"
-elif [ -n "${CCR_AGENT_PROXY_ENABLED:-}" ] || [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then cloud_env="claude-cloud"
-elif [ -f /.dockerenv ] || [ -n "${container:-}" ]; then cloud_env="container"
-fi
+cloud_env="$(codex_cloud_env)"
 say "== codex-cloud-setup: environment =="
 ok "detected: $cloud_env  (CODEX_HOME=$CODEX_HOME)"
 
@@ -192,8 +186,8 @@ fi
 if [ "$DO_EGRESS" = 1 ] && codex_have curl; then
   say "== egress preflight =="
   blocked=""
-  for h in api.openai.com auth.openai.com chatgpt.com; do
-    if curl -sS -o /dev/null --max-time 8 "https://$h/" 2>/dev/null; then
+  for h in $CODEX_OPENAI_HOSTS; do
+    if codex_egress_probe "$h"; then
       ok "https://$h reachable"
     else
       bad "https://$h blocked (proxy/network policy)"

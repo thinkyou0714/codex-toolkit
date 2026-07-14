@@ -6,9 +6,14 @@
 #   --home / --scripts / --claude / --repo / --all / --dry-run   (mirror install.sh)
 set -euo pipefail
 
+TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
 BIN_DIR="${CODEX_BIN_DIR:-$HOME/.local/bin}"
 PROJECT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+
+# Same wrapper manifest install.sh uses, so the two can never drift.
+# shellcheck source=scripts/lib/wrappers.sh
+source "$TOOLKIT_ROOT/scripts/lib/wrappers.sh"
 
 DRY_RUN=0; DO_HOME=0; DO_CLAUDE=0; DO_SCRIPTS=0; DO_REPO=0
 for arg in "$@"; do
@@ -40,7 +45,10 @@ fi
 
 if [ "$DO_SCRIPTS" = 1 ]; then
   echo "==> --scripts"
-  for s in codex_review codex_fix codex_auto_review codex-doctor codex-run codex-goal codex-cloud-setup; do rm_file "$BIN_DIR/$s"; done
+  while read -r _src link_name; do
+    [ -n "$link_name" ] || continue
+    rm_file "$BIN_DIR/$link_name"
+  done < <(codex_wrapper_manifest)
 fi
 
 if [ "$DO_REPO" = 1 ]; then

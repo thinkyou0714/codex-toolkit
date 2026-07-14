@@ -12,6 +12,8 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 2
+# shellcheck source=tests/lib/stub_codex.sh
+source "$ROOT/tests/lib/stub_codex.sh"
 
 fail=0
 pass() { echo "  ok   $*"; }
@@ -24,24 +26,8 @@ trap cleanup EXIT
 mkdir -p "$TMP/bin"
 # Stub codex: --version prints, `login status` reports not-logged-in,
 # `login --with-api-key` records the stdin it received, `exec ...` captures the
-# brief piped on stdin. Paths are baked in at write time.
-cat > "$TMP/bin/codex" <<STUB
-#!/usr/bin/env bash
-case "\$1" in
-  --version) echo "codex-cli 0.0.0-stub" ;;
-  login)
-    case "\${2:-}" in
-      status) exit 1 ;;
-      --with-api-key) cat > "$TMP/login-key.txt" ;;
-    esac ;;
-  exec)
-    printf '%s\n' "\$*" > "$TMP/exec-args.txt"
-    cat > "$TMP/brief.txt"
-    echo "MOCK_CODEX_DONE" ;;
-  *) cat >/dev/null ;;
-esac
-STUB
-chmod +x "$TMP/bin/codex"
+# brief piped on stdin (captures land under $TMP).
+make_stub_codex "$TMP/bin/codex" cloud "$TMP"
 export PATH="$TMP/bin:$PATH"
 
 echo "== codex-cloud-setup --dry-run touches nothing =="
@@ -85,10 +71,7 @@ grep -qE '^exec .*-o .*goal-last-message' "$TMP/exec-args.txt" 2>/dev/null \
   && pass "exec invoked with -o last-message capture" || bad "exec args wrong: $(cat "$TMP/exec-args.txt" 2>/dev/null)"
 
 echo "== codex-goal watchdog: timeout -> retry -> exit 6 =="
-cat > "$TMP/bin/codex" <<'SLOWSTUB'
-#!/usr/bin/env bash
-sleep 30
-SLOWSTUB
+make_stub_codex "$TMP/bin/codex" slow
 out="$(CODEX_HOME="$TMP/goal-home" CODEX_LOG_DIR="$TMP/goal-logs" \
       bash scripts/codex-goal.sh --timeout 1 --retries 1 "task" 2>&1)" && rc=0 || rc=$?
 [ "${rc:-0}" = 6 ] && pass "escalates with exit 6 after all attempts" || bad "expected exit 6, got $rc"

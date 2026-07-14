@@ -66,6 +66,13 @@ property of any cloud session, and make delegation to Codex deterministic.
 - `codex-goal.sh` now records watchdog timeouts and escalations to
   `failures.jsonl` (redacted) — a run the watchdog kills can't self-log through
   `codex-run.sh`, so incident triage would otherwise be blind to timeouts.
+- `scripts/lib/wrappers.sh` — one manifest of the PATH wrappers, sourced by
+  `install.sh` and `uninstall.sh` so the two lists (and the link-name rule)
+  can't drift; adding a wrapper is now a one-line edit instead of three, and a
+  forgotten uninstall entry (which left a dangling symlink) is impossible.
+- `tests/lib/stub_codex.sh` — one `make_stub_codex` factory replaces four inline
+  fake-`codex` heredocs across the suites, centralizing the stdin-drain
+  invariant a stale copy used to violate (and deadlock the run).
 
 ## [0.2.0] - 2026-05-29
 
